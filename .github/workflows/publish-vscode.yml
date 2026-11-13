@@ -1,0 +1,50 @@
+name: Publish VS Code extension
+
+# Publishes the .vsix attached to a GitHub release. Runs after the Release
+# workflow succeeds, or by hand for an existing tag.
+#
+# Visual Studio Marketplace: Trusted Publishing (OIDC), no stored token. The
+# DevanshChoubey publisher has a policy for this repository and this
+# workflow file, so renaming the file breaks publishing.
+# Open VSX: skipped until the OVSX_PAT repository secret is added.
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.1.1
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish the VS Code extension
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+      GH_TOKEN: ${{ github.token }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - name: Download the .vsix from the release
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "::error::not a version tag: $TAG"; exit 1 ;; esac
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.vsix' -D dist
+          ls -l dist
+      - name: Visual Studio Marketplace
+        run: npx --yes @vscode/vsce@4 publish --oidc --packagePath dist/*.vsix
+      - name: Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@1 publish dist/*.vsix -p "$OVSX_PAT"
+      - name: Open VSX skipped
+        if: env.OVSX_PAT == ''
+        run: echo "::notice::Add the OVSX_PAT repository secret to also publish to Open VSX."
