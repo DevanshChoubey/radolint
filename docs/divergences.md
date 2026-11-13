@@ -23,3 +23,12 @@ the empty text.
 dlint treats the empty target as not ending with `/`, so it reports DL3021 and
 keeps checking the file. See the `// DIVERGENCE:` comment in
 `crates/core/src/rules/dl3021.rs`.
+
+## ShellCheck findings follow a newer ShellCheck
+
+hadolint v2.15.1 links the ShellCheck 0.11.0 release. dlint runs `RUN`
+scripts through shelllint v0.2.0, a port of ShellCheck v0.11.0-171-ge11f964,
+so checks changed in those 171 commits can report differently. For example,
+upstream commit 776ed08 ("issue SC2114 against glob") makes `rm -r /*` report
+SC2114 ("deletes a system directory") where hadolint reports SC2115. Every
+ShellCheck case in the conformance corpus matches.
