@@ -21,52 +21,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "radolint-cli"
-version = "0.1.0"
-dependencies = [
- "radolint-core",
- "radolint-parser",
- "radolint-syntax",
-]
-
-[[package]]
-name = "radolint-conformance"
-version = "0.1.0"
-dependencies = [
- "radolint-core",
- "radolint-parser",
- "radolint-syntax",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "radolint-core"
-version = "0.1.0"
-dependencies = [
- "radolint-parser",
- "radolint-syntax",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "shelllint-checker",
- "shelllint-core",
- "shelllint-parser",
-]
-
-[[package]]
-name = "radolint-parser"
-version = "0.1.0"
-dependencies = [
- "radolint-syntax",
-]
-
-[[package]]
-name = "radolint-syntax"
-version = "0.1.0"
-
-[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -117,6 +71,52 @@ checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "radolint-cli"
+version = "0.1.0"
+dependencies = [
+ "radolint-core",
+ "radolint-parser",
+ "radolint-syntax",
+]
+
+[[package]]
+name = "radolint-conformance"
+version = "0.1.0"
+dependencies = [
+ "radolint-core",
+ "radolint-parser",
+ "radolint-syntax",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "radolint-core"
+version = "0.1.0"
+dependencies = [
+ "radolint-parser",
+ "radolint-syntax",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "shelllint-checker",
+ "shelllint-core",
+ "shelllint-parser",
+]
+
+[[package]]
+name = "radolint-parser"
+version = "0.1.0"
+dependencies = [
+ "radolint-syntax",
+]
+
+[[package]]
+name = "radolint-syntax"
+version = "0.1.0"
 
 [[package]]
 name = "regex"
@@ -221,8 +221,8 @@ dependencies = [
 
 [[package]]
 name = "shelllint-analyzer"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
+version = "0.2.1"
+source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.1#7498a0b2defe0bd8891b4f11ca7b96f3bf84fdbd"
 dependencies = [
  "regex",
  "rpds",
@@ -232,8 +232,8 @@ dependencies = [
 
 [[package]]
 name = "shelllint-checker"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
+version = "0.2.1"
+source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.1#7498a0b2defe0bd8891b4f11ca7b96f3bf84fdbd"
 dependencies = [
  "shelllint-analyzer",
  "shelllint-checks",
@@ -243,8 +243,8 @@ dependencies = [
 
 [[package]]
 name = "shelllint-checks"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
+version = "0.2.1"
+source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.1#7498a0b2defe0bd8891b4f11ca7b96f3bf84fdbd"
 dependencies = [
  "regex",
  "shelllint-analyzer",
@@ -253,16 +253,16 @@ dependencies = [
 
 [[package]]
 name = "shelllint-core"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
+version = "0.2.1"
+source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.1#7498a0b2defe0bd8891b4f11ca7b96f3bf84fdbd"
 dependencies = [
  "regex",
 ]
 
 [[package]]
 name = "shelllint-parser"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
+version = "0.2.1"
+source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.1#7498a0b2defe0bd8891b4f11ca7b96f3bf84fdbd"
 dependencies = [
  "shelllint-core",
 ]
