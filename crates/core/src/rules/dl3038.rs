@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3038.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -27,7 +27,11 @@ fn dl3038() -> Box<dyn Rule> {
         is_dnf_install(cmd) && !has_yes_option(cmd)
     }
     fn is_dnf_install(cmd: &Command) -> bool {
-        shell::cmds_have_args(&["dnf", "microdnf"], &["install", "groupinstall", "localinstall"], cmd)
+        shell::cmds_have_args(
+            &["dnf", "microdnf"],
+            &["install", "groupinstall", "localinstall"],
+            cmd,
+        )
     }
     fn has_yes_option(cmd: &Command) -> bool {
         shell::has_any_flag(&["y", "assumeyes"], cmd)
@@ -42,18 +46,30 @@ mod tests {
     #[test]
     fn not_ok_without_dnf_non_interactive_flag() {
         rule_catches("DL3038", "RUN dnf install httpd-2.4.24 && dnf clean all");
-        rule_catches("DL3038", "RUN microdnf install httpd-2.4.24 && microdnf clean all");
+        rule_catches(
+            "DL3038",
+            "RUN microdnf install httpd-2.4.24 && microdnf clean all",
+        );
         on_build_rule_catches("DL3038", "RUN dnf install httpd-2.4.24 && dnf clean all");
-        on_build_rule_catches("DL3038", "RUN microdnf install httpd-2.4.24 && microdnf clean all");
+        on_build_rule_catches(
+            "DL3038",
+            "RUN microdnf install httpd-2.4.24 && microdnf clean all",
+        );
     }
 
     #[test]
     fn ok_with_dnf_non_interactive_flag() {
         rule_catches_not("DL3038", "RUN dnf install -y httpd-2.4.24 && dnf clean all");
-        rule_catches_not("DL3038", "RUN microdnf install -y httpd-2.4.24 && microdnf clean all");
+        rule_catches_not(
+            "DL3038",
+            "RUN microdnf install -y httpd-2.4.24 && microdnf clean all",
+        );
         rule_catches_not("DL3038", "RUN notdnf install httpd");
         on_build_rule_catches_not("DL3038", "RUN dnf install -y httpd-2.4.24 && dnf clean all");
-        on_build_rule_catches_not("DL3038", "RUN microdnf install -y httpd-2.4.24 && microdnf clean all");
+        on_build_rule_catches_not(
+            "DL3038",
+            "RUN microdnf install -y httpd-2.4.24 && microdnf clean all",
+        );
         on_build_rule_catches_not("DL3038", "RUN notdnf install httpd");
     }
 }

@@ -21,7 +21,10 @@ pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {
 fn label_is_not_rfc3339_rule(label: LabelName) -> Box<dyn Rule> {
     let code = "DL3053";
     let severity = DLSeverity::DLWarningC;
-    let message = format!("Label `{}` is not a valid time format - must conform to RFC3339.", label);
+    let message = format!(
+        "Label `{}` is not a valid time format - must conform to RFC3339.",
+        label
+    );
     let check = move |instr: &Instruction<crate::shell::ParsedShell>| -> bool {
         match instr {
             Instruction::Label(ls) => get_bad_timeformat_labels(&label, ls).is_empty(),
@@ -95,7 +98,7 @@ fn parse_time_rfc3339(s: &str) -> Option<()> {
     if b.get(i) == Some(&b'.') {
         i += 1;
         let st = i;
-        while b.get(i).map_or(false, |c| c.is_ascii_digit()) {
+        while b.get(i).is_some_and(|c| c.is_ascii_digit()) {
             i += 1;
         }
         if i == st {
@@ -133,7 +136,8 @@ mod tests {
 
     fn config() -> Configuration {
         let mut c = Configuration::default();
-        c.label_schema.insert("datelabel".into(), LabelType::Rfc3339);
+        c.label_schema
+            .insert("datelabel".into(), LabelType::Rfc3339);
         c
     }
 
@@ -146,8 +150,16 @@ mod tests {
     #[test]
     fn ok_with_label_containing_rfc3339_date() {
         let c = config();
-        rule_catches_not_with(&c, "DL3053", "LABEL datelabel=\"2021-03-10T10:26:33.564595127+01:00\"");
-        on_build_rule_catches_not_with(&c, "DL3053", "LABEL datelabel=\"2021-03-10T10:26:33.564595127+01:00\"");
+        rule_catches_not_with(
+            &c,
+            "DL3053",
+            "LABEL datelabel=\"2021-03-10T10:26:33.564595127+01:00\"",
+        );
+        on_build_rule_catches_not_with(
+            &c,
+            "DL3053",
+            "LABEL datelabel=\"2021-03-10T10:26:33.564595127+01:00\"",
+        );
     }
     #[test]
     fn ok_with_other_label_not_containing_rfc3339_date() {

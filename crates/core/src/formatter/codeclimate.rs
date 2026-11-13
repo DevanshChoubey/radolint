@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Codeclimate.hs.
 
-use super::format::{error_bundle_pretty, error_position, FormatResult};
+use super::format::{FormatResult, error_bundle_pretty, error_position};
 use crate::rule::{CheckFailure, DLSeverity};
 use dlint_parser::ParseError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Write;
 
 /// Haskell `Issue`.
@@ -123,7 +123,10 @@ fn severity_text(severity: DLSeverity) -> &'static str {
 
 /// Haskell `generateFingerprint`: lowercase hex of SHA1 over the encoded issue.
 fn generate_fingerprint(i: &Issue) -> String {
-    sha1(encode(&i.to_json()).as_bytes()).iter().map(|b| format!("{:02x}", b)).collect()
+    sha1(encode(&i.to_json()).as_bytes())
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect()
 }
 
 // DIVERGENCE: no SHA1 crate is available in the manifest, so SHA-1 is implemented inline.
@@ -138,7 +141,12 @@ fn sha1(data: &[u8]) -> [u8; 20] {
     for chunk in msg.chunks(64) {
         let mut w = [0u32; 80];
         for i in 0..16 {
-            w[i] = u32::from_be_bytes([chunk[4 * i], chunk[4 * i + 1], chunk[4 * i + 2], chunk[4 * i + 3]]);
+            w[i] = u32::from_be_bytes([
+                chunk[4 * i],
+                chunk[4 * i + 1],
+                chunk[4 * i + 2],
+                chunk[4 * i + 3],
+            ]);
         }
         for i in 16..80 {
             w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
@@ -151,7 +159,12 @@ fn sha1(data: &[u8]) -> [u8; 20] {
                 40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC),
                 _ => (b ^ c ^ d, 0xCA62C1D6),
             };
-            let t = a.rotate_left(5).wrapping_add(f).wrapping_add(e).wrapping_add(k).wrapping_add(*wi);
+            let t = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(*wi);
             e = d;
             d = c;
             c = b.rotate_left(30);
@@ -174,23 +187,41 @@ fn sha1(data: &[u8]) -> [u8; 20] {
 /// Haskell `issueToFingerprintIssue`.
 fn issue_to_fingerprint_issue(i: Issue) -> FingerprintIssue {
     let fingerprint = generate_fingerprint(&i);
-    FingerprintIssue { issue: i, fingerprint }
+    FingerprintIssue {
+        issue: i,
+        fingerprint,
+    }
 }
 
 /// Haskell `formatResult`.
 fn format_result(result: &FormatResult, file_path_in_report: Option<&str>) -> Vec<Issue> {
     let mut v: Vec<Issue> = result.errors.iter().map(error_to_issue).collect();
-    v.extend(result.checks.iter().map(|c| check_to_issue(&result.file_name, file_path_in_report, c)));
+    v.extend(
+        result
+            .checks
+            .iter()
+            .map(|c| check_to_issue(&result.file_name, file_path_in_report, c)),
+    );
     v
 }
 
 /// Haskell `formatGitLabResult`.
-fn format_git_lab_result(result: &FormatResult, file_path_in_report: Option<&str>) -> Vec<FingerprintIssue> {
-    format_result(result, file_path_in_report).into_iter().map(issue_to_fingerprint_issue).collect()
+fn format_git_lab_result(
+    result: &FormatResult,
+    file_path_in_report: Option<&str>,
+) -> Vec<FingerprintIssue> {
+    format_result(result, file_path_in_report)
+        .into_iter()
+        .map(issue_to_fingerprint_issue)
+        .collect()
 }
 
 /// Haskell `printResult`.
-fn print_result(handle: &mut dyn Write, result: &FormatResult, file_path_in_report: Option<&str>) -> std::io::Result<()> {
+fn print_result(
+    handle: &mut dyn Write,
+    result: &FormatResult,
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     for value in format_result(result, file_path_in_report) {
         handle.write_all(encode(&value.to_json()).as_bytes())?;
         handle.write_all(&[0x00])?;
@@ -199,7 +230,11 @@ fn print_result(handle: &mut dyn Write, result: &FormatResult, file_path_in_repo
 }
 
 /// Haskell `hWrite`.
-pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_report: Option<&str>) -> std::io::Result<()> {
+pub fn h_write(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     for r in results {
         print_result(handle, r, file_path_in_report)?;
     }
@@ -207,7 +242,11 @@ pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_re
 }
 
 /// Haskell `hWriteGitLab`.
-pub fn h_write_gitlab(handle: &mut dyn Write, results: &[FormatResult], file_path_in_report: Option<&str>) -> std::io::Result<()> {
+pub fn h_write_gitlab(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     let flattened: Vec<Value> = results
         .iter()
         .flat_map(|r| format_git_lab_result(r, file_path_in_report))

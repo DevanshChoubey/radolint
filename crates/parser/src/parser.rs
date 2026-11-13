@@ -5,7 +5,7 @@
 //! The functions here are fully implemented; the parsers they call
 //! (`parseInstruction`, `parseComment`, `eol`, ...) are stubs until ported.
 
-use crate::combinator::{run_parser, PResult, ParseError, Parser};
+use crate::combinator::{PResult, ParseError, Parser, run_parser};
 use crate::instruction::{parse_comment, parse_instruction};
 use crate::prelude::{eol, only_whitespaces};
 use dlint_syntax::*;
@@ -24,9 +24,13 @@ pub fn dockerfile(p: &mut Parser) -> PResult<Vec<InstructionPos<String>>> {
         let pos = p.get_source_pos();
         let i = parse_instruction(p)?;
         p.label("a new line followed by the next instruction", |p| {
-            p.alt(|p| eol(p), |p| p.eof())
+            p.alt(eol, |p| p.eof())
         })?;
-        Ok(InstructionPos { instruction: i, sourcename: pos.name, line_number: pos.line as i64 })
+        Ok(InstructionPos {
+            instruction: i,
+            sourcename: pos.name,
+            line_number: pos.line as i64,
+        })
     })
 }
 
@@ -63,7 +67,9 @@ pub fn find_escape_pragma(lines: &[&str]) -> char {
         let r = run_parser(l, "<line>", DEFAULT_ESC, |p| contents(p, parse_comment));
         match r {
             Err(_) => return DEFAULT_ESC,
-            Ok(Instruction::Pragma(PragmaDirective::Escape(EscapeChar { escape }))) => return escape,
+            Ok(Instruction::Pragma(PragmaDirective::Escape(EscapeChar { escape }))) => {
+                return escape;
+            }
             Ok(Instruction::Pragma(_)) => continue,
             Ok(_) => return DEFAULT_ESC,
         }
@@ -104,7 +110,11 @@ pub fn decode(txt: &[u8]) -> String {
                     return '\u{fffd}';
                 }
                 let a = [c[0], c[1], c[2], c[3]];
-                let v = if le { u32::from_le_bytes(a) } else { u32::from_be_bytes(a) };
+                let v = if le {
+                    u32::from_le_bytes(a)
+                } else {
+                    u32::from_be_bytes(a)
+                };
                 char::from_u32(v).unwrap_or('\u{fffd}')
             })
             .collect()
@@ -112,9 +122,19 @@ pub fn decode(txt: &[u8]) -> String {
     let lossy16 = |b: &[u8], le: bool| -> String {
         let units: Vec<u16> = b
             .chunks(2)
-            .map(|c| if c.len() < 2 { 0xfffd } else if le { u16::from_le_bytes([c[0], c[1]]) } else { u16::from_be_bytes([c[0], c[1]]) })
+            .map(|c| {
+                if c.len() < 2 {
+                    0xfffd
+                } else if le {
+                    u16::from_le_bytes([c[0], c[1]])
+                } else {
+                    u16::from_be_bytes([c[0], c[1]])
+                }
+            })
             .collect();
-        char::decode_utf16(units).map(|r| r.unwrap_or('\u{fffd}')).collect()
+        char::decode_utf16(units)
+            .map(|r| r.unwrap_or('\u{fffd}'))
+            .collect()
     };
     if txt.starts_with(BOM_UTF32_LE) {
         lossy32(&txt[4..], true)

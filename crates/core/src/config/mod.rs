@@ -6,7 +6,7 @@ pub mod configfile;
 pub mod configuration;
 pub mod environment;
 
-pub use commandline::{parse_commandline, CommandlineConfig, CommandlineOutcome};
+pub use commandline::{CommandlineConfig, CommandlineOutcome, parse_commandline};
 pub use configfile::get_config_from_file;
 pub use configuration::*;
 pub use environment::get_config_from_environment;

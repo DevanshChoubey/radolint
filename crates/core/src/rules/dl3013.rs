@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3013.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command};
 use dlint_syntax::*;
 
@@ -29,12 +29,16 @@ pub fn dl3013() -> Box<dyn Rule> {
 }
 
 fn forgot_to_pin_version(cmd: &Command) -> bool {
-    is_pip_install(cmd) && !has_build_constraint(cmd) && !packages(cmd).iter().all(|p| version_fixed(p))
+    is_pip_install(cmd)
+        && !has_build_constraint(cmd)
+        && !packages(cmd).iter().all(|p| version_fixed(p))
 }
 
 // Check if the command is a pip* install command, and that specific packages are being listed
 fn is_pip_install(cmd: &Command) -> bool {
-    (shell::is_pip_install(cmd) && !has_build_constraint(cmd) && !packages(cmd).iter().all(|p| version_fixed(p)))
+    (shell::is_pip_install(cmd)
+        && !has_build_constraint(cmd)
+        && !packages(cmd).iter().all(|p| version_fixed(p)))
         && !requirement_install(cmd)
 }
 
@@ -42,7 +46,9 @@ fn is_pip_install(cmd: &Command) -> bool {
 // in running this rule
 fn requirement_install(cmd: &Command) -> bool {
     let args = shell::get_args(cmd);
-    args.iter().any(|a| a == "--requirement") || args.iter().any(|a| a == "-r") || args.iter().any(|a| a == ".")
+    args.iter().any(|a| a == "--requirement")
+        || args.iter().any(|a| a == "-r")
+        || args.iter().any(|a| a == ".")
 }
 
 fn has_build_constraint(cmd: &Command) -> bool {
@@ -69,7 +75,9 @@ fn has_version_symbol(package: &str) -> bool {
 const LOCAL_PACKAGE_FILE_EXTENSIONS: [&str; 2] = [".whl", ".tar.gz"];
 
 fn is_local_package(package: &str) -> bool {
-    LOCAL_PACKAGE_FILE_EXTENSIONS.iter().any(|s| package.ends_with(s))
+    LOCAL_PACKAGE_FILE_EXTENSIONS
+        .iter()
+        .any(|s| package.ends_with(s))
 }
 
 fn is_no_vcs_path_source(package: &str) -> bool {
@@ -222,38 +230,74 @@ mod tests {
 
     #[test]
     fn pip_version_pinned_with_flag_ignore_installed() {
-        rule_catches_not("DL3013", "RUN pip install --ignore-installed MySQL_python==1.2.2");
-        on_build_rule_catches_not("DL3013", "RUN pip install --ignore-installed MySQL_python==1.2.2");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --ignore-installed MySQL_python==1.2.2",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --ignore-installed MySQL_python==1.2.2",
+        );
     }
 
     #[test]
     fn pip_version_pinned_with_flag_build() {
-        rule_catches_not("DL3013", "RUN pip3 install --build /opt/yamllint yamllint==1.20.0");
-        on_build_rule_catches_not("DL3013", "RUN pip3 install --build /opt/yamllint yamllint==1.20.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --build /opt/yamllint yamllint==1.20.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --build /opt/yamllint yamllint==1.20.0",
+        );
     }
 
     #[test]
     fn pip_version_pinned_with_flag_prefix() {
-        rule_catches_not("DL3013", "RUN pip3 install --prefix /opt/yamllint yamllint==1.20.0");
-        on_build_rule_catches_not("DL3013", "RUN pip3 install --prefix /opt/yamllint yamllint==1.20.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --prefix /opt/yamllint yamllint==1.20.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --prefix /opt/yamllint yamllint==1.20.0",
+        );
     }
 
     #[test]
     fn pip_version_pinned_with_flag_root() {
-        rule_catches_not("DL3013", "RUN pip3 install --root /opt/yamllint yamllint==1.20.0");
-        on_build_rule_catches_not("DL3013", "RUN pip3 install --root /opt/yamllint yamllint==1.20.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --root /opt/yamllint yamllint==1.20.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --root /opt/yamllint yamllint==1.20.0",
+        );
     }
 
     #[test]
     fn pip_version_pinned_with_flag_target() {
-        rule_catches_not("DL3013", "RUN pip3 install --target /opt/yamllint yamllint==1.20.0");
-        on_build_rule_catches_not("DL3013", "RUN pip3 install --target /opt/yamllint yamllint==1.20.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --target /opt/yamllint yamllint==1.20.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --target /opt/yamllint yamllint==1.20.0",
+        );
     }
 
     #[test]
     fn pip_version_pinned_with_flag_trusted_host() {
-        rule_catches_not("DL3013", "RUN pip3 install --trusted-host host example==1.2.2");
-        on_build_rule_catches_not("DL3013", "RUN pip3 install --trusted-host host example==1.2.2");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --trusted-host host example==1.2.2",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip3 install --trusted-host host example==1.2.2",
+        );
     }
 
     #[test]
@@ -265,23 +309,50 @@ mod tests {
     #[test]
     fn pip_version_not_pinned_with_python_m() {
         rule_catches("DL3013", "RUN python -m pip install example");
-        on_build_rule_catches("DL3013", "RUN python -m pip install --index-url url example");
+        on_build_rule_catches(
+            "DL3013",
+            "RUN python -m pip install --index-url url example",
+        );
     }
 
     #[test]
     fn pip_install_git() {
-        rule_catches_not("DL3013", "RUN pip install git+https://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext");
-        on_build_rule_catches_not("DL3013", "RUN pip install git+https://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext");
-        rule_catches_not("DL3013", "RUN pip install git+ssh://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext");
-        on_build_rule_catches_not("DL3013", "RUN pip install git+ssh://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install git+https://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install git+https://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext",
+        );
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install git+ssh://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install git+ssh://github.com/rtfd/r-ext.git@0.6-alpha#egg=r-ext",
+        );
     }
 
     #[test]
     fn pip_install_unversioned_git() {
-        rule_catches("DL3013", "RUN pip install git+https://github.com/rtfd/read-ext.git#egg=read-ext");
-        on_build_rule_catches("DL3013", "RUN pip install git+https://github.com/rtfd/read-ext.git#egg=read-ext");
-        rule_catches("DL3013", "RUN pip install git+ssh://github.com/rtfd/read-ext.git#egg=read-ext");
-        on_build_rule_catches("DL3013", "RUN pip install git+ssh://github.com/rtfd/read-ext.git#egg=read-ext");
+        rule_catches(
+            "DL3013",
+            "RUN pip install git+https://github.com/rtfd/read-ext.git#egg=read-ext",
+        );
+        on_build_rule_catches(
+            "DL3013",
+            "RUN pip install git+https://github.com/rtfd/read-ext.git#egg=read-ext",
+        );
+        rule_catches(
+            "DL3013",
+            "RUN pip install git+ssh://github.com/rtfd/read-ext.git#egg=read-ext",
+        );
+        on_build_rule_catches(
+            "DL3013",
+            "RUN pip install git+ssh://github.com/rtfd/read-ext.git#egg=read-ext",
+        );
     }
 
     #[test]
@@ -322,38 +393,74 @@ mod tests {
 
     #[test]
     fn pip_install_no_pip_version_check() {
-        rule_catches_not("DL3013", "RUN pip install MySQL_python==1.2.2 --disable-pip-version-check");
-        on_build_rule_catches_not("DL3013", "RUN pip install MySQL_python==1.2.2 --disable-pip-version-check");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install MySQL_python==1.2.2 --disable-pip-version-check",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install MySQL_python==1.2.2 --disable-pip-version-check",
+        );
     }
 
     #[test]
     fn pip_install_index_url() {
-        rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo foobar==1.0.0");
-        on_build_rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo foobar==1.0.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo foobar==1.0.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo foobar==1.0.0",
+        );
     }
 
     #[test]
     fn pip_install_index_url_with_i_flag() {
-        rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo foobar==1.0.0");
-        on_build_rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo foobar==1.0.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo foobar==1.0.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo foobar==1.0.0",
+        );
     }
 
     #[test]
     fn pip_install_index_url_with_extra_index_url() {
-        rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo --extra-index-url https://ex-eg.io/foo foobar==1.0.0");
-        on_build_rule_catches_not("DL3013", "RUN pip install --index-url https://eg.com/foo --extra-index-url https://ex-eg.io/foo foobar==1.0.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo --extra-index-url https://ex-eg.io/foo foobar==1.0.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://eg.com/foo --extra-index-url https://ex-eg.io/foo foobar==1.0.0",
+        );
     }
 
     #[test]
     fn pip_install_no_cache_dir() {
-        rule_catches_not("DL3013", "RUN pip install MySQL_python==1.2.2 --no-cache-dir");
-        on_build_rule_catches_not("DL3013", "RUN pip install MySQL_python==1.2.2 --no-cache-dir");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install MySQL_python==1.2.2 --no-cache-dir",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install MySQL_python==1.2.2 --no-cache-dir",
+        );
     }
 
     #[test]
     fn pip_install_constraints_file_long_version_argument() {
-        rule_catches_not("DL3013", "RUN pip install pykafka --constraint http://foo.bar.baz");
-        on_build_rule_catches_not("DL3013", "RUN pip install pykafka --constraint http://foo.bar.baz");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install pykafka --constraint http://foo.bar.baz",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install pykafka --constraint http://foo.bar.baz",
+        );
     }
 
     #[test]
@@ -364,8 +471,14 @@ mod tests {
 
     #[test]
     fn pip_install_index_url_with_extra_index_url_with_basic_auth() {
-        rule_catches_not("DL3013", "RUN pip install --index-url https://user:pass@eg.com/foo --extra-index-url https://user:pass@ex-eg.io/foo foobar==1.0.0");
-        on_build_rule_catches_not("DL3013", "RUN pip install --index-url https://user:pass@eg.com/foo --extra-index-url https://user:pass@ex-eg.io/foo foobar==1.0.0");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://user:pass@eg.com/foo --extra-index-url https://user:pass@ex-eg.io/foo foobar==1.0.0",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --index-url https://user:pass@eg.com/foo --extra-index-url https://user:pass@ex-eg.io/foo foobar==1.0.0",
+        );
     }
 
     #[test]
@@ -382,14 +495,26 @@ mod tests {
 
     #[test]
     fn pipx_install_python_argument_is_not_a_package() {
-        rule_catches_not("DL3013", "RUN pipx install --python \"$(which python)\" \"poetry==1.8.5\"");
-        on_build_rule_catches_not("DL3013", "RUN pipx install --python \"$(which python)\" \"poetry==1.8.5\"");
+        rule_catches_not(
+            "DL3013",
+            "RUN pipx install --python \"$(which python)\" \"poetry==1.8.5\"",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pipx install --python \"$(which python)\" \"poetry==1.8.5\"",
+        );
     }
 
     #[test]
     fn pip_install_root_user_action_argument_is_not_a_package() {
-        rule_catches_not("DL3013", "RUN pip install --no-cache-dir --root-user-action ignore poetry==1.8.5");
-        on_build_rule_catches_not("DL3013", "RUN pip install --no-cache-dir --root-user-action ignore poetry==1.8.5");
+        rule_catches_not(
+            "DL3013",
+            "RUN pip install --no-cache-dir --root-user-action ignore poetry==1.8.5",
+        );
+        on_build_rule_catches_not(
+            "DL3013",
+            "RUN pip install --no-cache-dir --root-user-action ignore poetry==1.8.5",
+        );
     }
 
     #[test]

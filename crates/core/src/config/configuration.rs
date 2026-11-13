@@ -86,25 +86,31 @@ impl PartialConfiguration {
         self.partial_info_rules.extend(b.partial_info_rules);
         self.partial_style_rules.extend(b.partial_style_rules);
         self.partial_ignore_rules.extend(b.partial_ignore_rules);
-        self.partial_allowed_registries.extend(b.partial_allowed_registries);
+        self.partial_allowed_registries
+            .extend(b.partial_allowed_registries);
         // Data.Map union is left-biased: keys already present in `self` win.
         for (k, v) in b.partial_label_schema {
             self.partial_label_schema.entry(k).or_insert(v);
         }
         self.partial_strict_labels = b.partial_strict_labels.or(self.partial_strict_labels);
-        self.partial_disable_ignore_pragma =
-            b.partial_disable_ignore_pragma.or(self.partial_disable_ignore_pragma);
-        self.partial_failure_threshold = match (self.partial_failure_threshold, b.partial_failure_threshold) {
-            (Some(a), Some(b)) => Some(a.append(b)),
-            (Some(a), None) => Some(a),
-            (None, b) => b,
-        };
+        self.partial_disable_ignore_pragma = b
+            .partial_disable_ignore_pragma
+            .or(self.partial_disable_ignore_pragma);
+        self.partial_failure_threshold =
+            match (self.partial_failure_threshold, b.partial_failure_threshold) {
+                (Some(a), Some(b)) => Some(a.append(b)),
+                (Some(a), None) => Some(a),
+                (None, b) => b,
+            };
         self
     }
 }
 
 /// Haskell `applyPartialConfiguration`.
-pub fn apply_partial_configuration(config: Configuration, partial: PartialConfiguration) -> Configuration {
+pub fn apply_partial_configuration(
+    config: Configuration,
+    partial: PartialConfiguration,
+) -> Configuration {
     let mut formats = config.formats;
     formats.extend(partial.partial_formats);
     let mut error_rules = config.error_rules;
@@ -135,9 +141,15 @@ pub fn apply_partial_configuration(config: Configuration, partial: PartialConfig
         ignore_rules,
         allowed_registries,
         label_schema,
-        strict_labels: partial.partial_strict_labels.unwrap_or(config.strict_labels),
-        disable_ignore_pragma: partial.partial_disable_ignore_pragma.unwrap_or(config.disable_ignore_pragma),
-        failure_threshold: partial.partial_failure_threshold.unwrap_or(config.failure_threshold),
+        strict_labels: partial
+            .partial_strict_labels
+            .unwrap_or(config.strict_labels),
+        disable_ignore_pragma: partial
+            .partial_disable_ignore_pragma
+            .unwrap_or(config.disable_ignore_pragma),
+        failure_threshold: partial
+            .partial_failure_threshold
+            .unwrap_or(config.failure_threshold),
     }
 }
 
@@ -150,7 +162,10 @@ impl Configuration {
         let b = |v: bool| if v { "True" } else { "False" };
         let formats = nest(
             2,
-            &format!("output format:\n{}", pretty_print_list(|f| f.pretty().to_string(), &c.formats)),
+            &format!(
+                "output format:\n{}",
+                pretty_print_list(|f| f.pretty().to_string(), &c.formats)
+            ),
         );
         let body = vec![
             "Configuration:".to_string(),
@@ -175,24 +190,41 @@ impl Configuration {
 /// `nest n doc`: indent every line after the first by `n` spaces.
 fn nest(n: usize, doc: &str) -> String {
     let pad = " ".repeat(n);
-    doc.split('\n').collect::<Vec<_>>().join(&format!("\n{pad}"))
+    doc.split('\n')
+        .collect::<Vec<_>>()
+        .join(&format!("\n{pad}"))
 }
 
 fn pretty_print_rulelist(name: &str, lst: &[RuleCode]) -> String {
-    nest(2, &format!("override {name}:\n{}", pretty_print_list(|r| r.pretty(), lst)))
+    nest(
+        2,
+        &format!(
+            "override {name}:\n{}",
+            pretty_print_list(|r| r.pretty(), lst)
+        ),
+    )
 }
 
 /// This function needs to convert the set to a list because Doc ann is not ordered.
 fn pretty_print_registries(regs: &BTreeSet<Registry>) -> String {
     let v: Vec<&Registry> = regs.iter().collect();
-    nest(2, &format!("allowed registries:\n{}", pretty_print_list(|r| format!("- {}", r.un_registry), &v)))
+    nest(
+        2,
+        &format!(
+            "allowed registries:\n{}",
+            pretty_print_list(|r| format!("- {}", r.un_registry), &v)
+        ),
+    )
 }
 
 fn pretty_print_label_schema(ls: &LabelSchema) -> String {
     let v: Vec<(&String, &crate::rule::LabelType)> = ls.iter().collect();
     nest(
         2,
-        &format!("label schema:\n{}", pretty_print_list(|(n, t)| format!("{}: {}", n, t.pretty()), &v)),
+        &format!(
+            "label schema:\n{}",
+            pretty_print_list(|(n, t)| format!("{}: {}", n, t.pretty()), &v)
+        ),
     )
 }
 
@@ -201,7 +233,10 @@ fn pretty_print_list<A, F: Fn(&A) -> String>(prnt: F, lst: &[A]) -> String {
     if lst.is_empty() {
         return "none".to_string();
     }
-    lst.iter().map(|i| format!("- {}", prnt(i))).collect::<Vec<_>>().join("\n")
+    lst.iter()
+        .map(|i| format!("- {}", prnt(i)))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Haskell `instance FromYAML PartialConfiguration` (plus `OverrideConfig`), as a function over YAML text.
@@ -220,14 +255,21 @@ pub fn partial_from_yaml(text: &str) -> Result<PartialConfiguration, String> {
     let bool_of = |k: &str| get(k).and_then(|v| v.as_bool());
     let strs = |v: Option<&Value>| -> Vec<String> {
         v.and_then(|v| v.as_sequence())
-            .map(|s| s.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .map(|s| {
+                s.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default()
     };
     p.partial_no_fail = bool_of("no-fail");
     p.partial_no_color = bool_of("no-color");
     p.partial_verbose = bool_of("verbose");
     let mut fmts = vec![];
-    for f in strs(get("formats")).into_iter().chain(get("format").and_then(|v| v.as_str()).map(String::from)) {
+    for f in strs(get("formats"))
+        .into_iter()
+        .chain(get("format").and_then(|v| v.as_str()).map(String::from))
+    {
         match crate::formatter::format::read_maybe_output_format(&f) {
             Some(x) => fmts.push(x),
             None => return Err(format!("invalid output format {f}")),
@@ -241,8 +283,14 @@ pub fn partial_from_yaml(text: &str) -> Result<PartialConfiguration, String> {
         p.partial_info_rules = og("info").into_iter().map(RuleCode::from).collect();
         p.partial_style_rules = og("style").into_iter().map(RuleCode::from).collect();
     }
-    p.partial_ignore_rules = strs(get("ignored")).into_iter().map(RuleCode::from).collect();
-    p.partial_allowed_registries = strs(get("trustedRegistries")).into_iter().map(|s| Registry::from(s.as_str())).collect();
+    p.partial_ignore_rules = strs(get("ignored"))
+        .into_iter()
+        .map(RuleCode::from)
+        .collect();
+    p.partial_allowed_registries = strs(get("trustedRegistries"))
+        .into_iter()
+        .map(|s| Registry::from(s.as_str()))
+        .collect();
     if let Some(Value::Mapping(ls)) = get("label-schema") {
         for (k, t) in ls {
             if let (Some(k), Some(t)) = (k.as_str(), t.as_str()) {
@@ -269,52 +317,100 @@ mod tests {
 
     #[test]
     fn override_default_configuration_with_empty_config() {
-        assert_eq!(apply_partial_configuration(def(), PartialConfiguration::mempty()), def());
+        assert_eq!(
+            apply_partial_configuration(def(), PartialConfiguration::mempty()),
+            def()
+        );
     }
 
     #[test]
     fn override_default_with_specific_configuration_no_fail() {
-        let config = PartialConfiguration { partial_no_fail: Some(true), ..Default::default() };
-        assert_eq!(apply_partial_configuration(def(), config), Configuration { no_fail: true, ..def() });
+        let config = PartialConfiguration {
+            partial_no_fail: Some(true),
+            ..Default::default()
+        };
+        assert_eq!(
+            apply_partial_configuration(def(), config),
+            Configuration {
+                no_fail: true,
+                ..def()
+            }
+        );
     }
 
     #[test]
     fn override_default_with_specific_configuration_no_color() {
-        let config = PartialConfiguration { partial_no_color: Some(true), ..Default::default() };
-        assert_eq!(apply_partial_configuration(def(), config), Configuration { no_color: true, ..def() });
+        let config = PartialConfiguration {
+            partial_no_color: Some(true),
+            ..Default::default()
+        };
+        assert_eq!(
+            apply_partial_configuration(def(), config),
+            Configuration {
+                no_color: true,
+                ..def()
+            }
+        );
     }
 
     #[test]
     fn empty_should_not_override_no_color() {
-        let config = PartialConfiguration { partial_no_color: Some(true), ..Default::default() };
+        let config = PartialConfiguration {
+            partial_no_color: Some(true),
+            ..Default::default()
+        };
         let config2 = PartialConfiguration::default();
         assert_eq!(
             apply_partial_configuration(def(), config.append(config2)),
-            Configuration { no_color: true, ..def() }
+            Configuration {
+                no_color: true,
+                ..def()
+            }
         );
     }
 
     #[test]
     fn override_default_with_specific_configuration_verbose() {
-        let config = PartialConfiguration { partial_verbose: Some(true), ..Default::default() };
-        assert_eq!(apply_partial_configuration(def(), config), Configuration { verbose: true, ..def() });
+        let config = PartialConfiguration {
+            partial_verbose: Some(true),
+            ..Default::default()
+        };
+        assert_eq!(
+            apply_partial_configuration(def(), config),
+            Configuration {
+                verbose: true,
+                ..def()
+            }
+        );
     }
 
     #[test]
     fn override_default_with_specific_configuration_output_format_json() {
-        let config = PartialConfiguration { partial_formats: vec![OutputFormat::Json], ..Default::default() };
+        let config = PartialConfiguration {
+            partial_formats: vec![OutputFormat::Json],
+            ..Default::default()
+        };
         assert_eq!(
             apply_partial_configuration(def(), config),
-            Configuration { formats: vec![OutputFormat::Json], ..def() }
+            Configuration {
+                formats: vec![OutputFormat::Json],
+                ..def()
+            }
         );
     }
 
     #[test]
     fn override_default_with_specific_configuration_disable_ignore_pragma() {
-        let config = PartialConfiguration { partial_disable_ignore_pragma: Some(true), ..Default::default() };
+        let config = PartialConfiguration {
+            partial_disable_ignore_pragma: Some(true),
+            ..Default::default()
+        };
         assert_eq!(
             apply_partial_configuration(def(), config),
-            Configuration { disable_ignore_pragma: true, ..def() }
+            Configuration {
+                disable_ignore_pragma: true,
+                ..def()
+            }
         );
     }
 }

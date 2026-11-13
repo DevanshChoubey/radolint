@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3042.hs.
 
 use crate::rule::{
-    add_fail, combine, empty_state, fold_arguments, modify, onbuild, pipe, CheckFailure,
-    DLSeverity, Rule, RuleCode, State, custom_rule,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, combine, custom_rule, empty_state,
+    fold_arguments, modify, onbuild, pipe,
 };
 use crate::shell::{self, ParsedShell};
 use crate::utils;
@@ -20,7 +20,10 @@ enum Stage {
 
 #[derive(Debug, Clone)]
 enum Acc {
-    Acc { current: Stage, no_cache_map: BTreeMap<Stage, bool> },
+    Acc {
+        current: Stage,
+        no_cache_map: BTreeMap<Stage, bool>,
+    },
     Empty,
 }
 
@@ -32,20 +35,27 @@ pub fn rule() -> Box<dyn Rule> {
 fn dl3042() -> Box<dyn Rule> {
     let code = "DL3042";
     let severity = DLSeverity::DLWarningC;
-    let message = "Avoid use of cache directory with pip. Use `pip install --no-cache-dir <package>`";
+    let message =
+        "Avoid use of cache directory with pip. Use `pip install --no-cache-dir <package>`";
 
     let check = move |line, st: State<Acc>, instr: &Instruction<ParsedShell>| match instr {
         Instruction::From(from) => pipe(st, |s| modify(|a| remember_stage(from, a), s)),
         Instruction::Env(pairs) => pipe(st, |s| modify(|a| register_env(pairs, a), s)),
         Instruction::Run(RunArgs(args, flags)) => {
-            if let Acc::Acc { current, no_cache_map } = &st.state {
-                if no_cache_map.get(current) == Some(&true) {
-                    return st;
-                }
+            if let Acc::Acc {
+                current,
+                no_cache_map,
+            } = &st.state
+                && no_cache_map.get(current) == Some(&true)
+            {
+                return st;
             }
             if fold_arguments(pip_no_cache_dir_is_set, args) {
                 st
-            } else if fold_arguments(|s: &ParsedShell| shell::no_commands(forgot_no_cache_dir, s), args) {
+            } else if fold_arguments(
+                |s: &ParsedShell| shell::no_commands(forgot_no_cache_dir, s),
+                args,
+            ) {
                 st
             } else if utils::has_cache_or_tmpfs_mount_with(".cache/pip", flags) {
                 st
@@ -111,7 +121,12 @@ fn remember_stage(base: &BaseImage, acc: Acc) -> Acc {
             current: Stage::Stage(base.image.image_name.clone()),
             no_cache_map: BTreeMap::new(),
         },
-        (Acc::Acc { mut no_cache_map, .. }, alias) => {
+        (
+            Acc::Acc {
+                mut no_cache_map, ..
+            },
+            alias,
+        ) => {
             let parent_value = no_cache_map
                 .get(&Stage::Stage(base.image.image_name.clone()))
                 .copied()
@@ -121,7 +136,10 @@ fn remember_stage(base: &BaseImage, acc: Acc) -> Acc {
                 None => base.image.image_name.clone(),
             };
             no_cache_map.insert(Stage::Stage(name.clone()), parent_value);
-            Acc::Acc { current: Stage::Stage(name), no_cache_map }
+            Acc::Acc {
+                current: Stage::Stage(name),
+                no_cache_map,
+            }
         }
     }
 }
@@ -132,16 +150,25 @@ fn register_env(pairs: &Pairs, acc: Acc) -> Acc {
             if pip_no_cache_dir_set(pairs) {
                 let mut m = BTreeMap::new();
                 m.insert(Stage::None, true);
-                Acc::Acc { current: Stage::None, no_cache_map: m }
+                Acc::Acc {
+                    current: Stage::None,
+                    no_cache_map: m,
+                }
             } else {
                 Acc::Empty
             }
         }
-        Acc::Acc { current, mut no_cache_map } => {
+        Acc::Acc {
+            current,
+            mut no_cache_map,
+        } => {
             if pip_no_cache_dir_set(pairs) {
                 no_cache_map.insert(current.clone(), true);
             }
-            Acc::Acc { current, no_cache_map }
+            Acc::Acc {
+                current,
+                no_cache_map,
+            }
         }
     }
 }
@@ -153,7 +180,9 @@ fn pip_no_cache_dir_set(pairs: &Pairs) -> bool {
     }
 }
 
-const TRUTHY: [&str; 10] = ["1", "true", "True", "TRUE", "on", "On", "ON", "yes", "Yes", "YES"];
+const TRUTHY: [&str; 10] = [
+    "1", "true", "True", "TRUE", "on", "On", "ON", "yes", "Yes", "YES",
+];
 
 #[cfg(test)]
 mod tests {
@@ -202,47 +231,79 @@ mod tests {
     #[test]
     fn respect_env_truthy() {
         for v in ["1", "on", "yes", "true"] {
-            rule_catches_not("DL3042", &format!("ENV PIP_NO_CACHE_DIR={v}\nRUN pip install MySQL_python"));
+            rule_catches_not(
+                "DL3042",
+                &format!("ENV PIP_NO_CACHE_DIR={v}\nRUN pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn respect_run_truthy() {
         for v in ["1", "on", "yes", "true"] {
-            rule_catches_not("DL3042", &format!("RUN PIP_NO_CACHE_DIR={v} pip install MySQL_python"));
+            rule_catches_not(
+                "DL3042",
+                &format!("RUN PIP_NO_CACHE_DIR={v} pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn respect_run_export_truthy() {
         for v in ["1", "on", "yes", "true"] {
-            rule_catches_not("DL3042", &format!("RUN export PIP_NO_CACHE_DIR={v} && pip install MySQL_python"));
+            rule_catches_not(
+                "DL3042",
+                &format!("RUN export PIP_NO_CACHE_DIR={v} && pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn respect_env_falsy() {
         for v in ["0", "off", "no", "false"] {
-            rule_catches("DL3042", &format!("ENV PIP_NO_CACHE_DIR={v}\nRUN pip install MySQL_python"));
+            rule_catches(
+                "DL3042",
+                &format!("ENV PIP_NO_CACHE_DIR={v}\nRUN pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn respect_run_falsy() {
         for v in ["0", "off", "no", "false"] {
-            rule_catches("DL3042", &format!("RUN PIP_NO_CACHE_DIR={v} pip install MySQL_python"));
+            rule_catches(
+                "DL3042",
+                &format!("RUN PIP_NO_CACHE_DIR={v} pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn respect_run_export_falsy() {
         for v in ["0", "off", "no", "false"] {
-            rule_catches("DL3042", &format!("RUN export PIP_NO_CACHE_DIR={v} && pip install MySQL_python"));
+            rule_catches(
+                "DL3042",
+                &format!("RUN export PIP_NO_CACHE_DIR={v} && pip install MySQL_python"),
+            );
         }
     }
     #[test]
     fn dont_trigger_if_inherited() {
-        let d = ["FROM debian:buster as base", "ENV PIP_NO_CACHE_DIR=1", "FROM base", "RUN pip install six", ""].join("\n");
+        let d = [
+            "FROM debian:buster as base",
+            "ENV PIP_NO_CACHE_DIR=1",
+            "FROM base",
+            "RUN pip install six",
+            "",
+        ]
+        .join("\n");
         rule_catches_not("DL3042", &d);
     }
     #[test]
     fn trigger_if_not_inherited() {
-        let d = ["FROM debian:buster as base", "ENV PIP_NO_CACHE_DIR=1", "FROM debian:buster", "RUN pip install six", ""].join("\n");
+        let d = [
+            "FROM debian:buster as base",
+            "ENV PIP_NO_CACHE_DIR=1",
+            "FROM debian:buster",
+            "RUN pip install six",
+            "",
+        ]
+        .join("\n");
         rule_catches("DL3042", &d);
     }
     #[test]

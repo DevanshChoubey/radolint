@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL1001.hs.
 
 use crate::pragma::parse_ignore_pragma;
-use crate::rule::{simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.

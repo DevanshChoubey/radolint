@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3034.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -29,7 +29,15 @@ fn dl3034() -> Box<dyn Rule> {
     fn is_zypper_install(cmd: &Command) -> bool {
         shell::cmd_has_args(
             "zypper",
-            &["install", "in", "remove", "rm", "source-install", "si", "patch"],
+            &[
+                "install",
+                "in",
+                "remove",
+                "rm",
+                "source-install",
+                "si",
+                "patch",
+            ],
             cmd,
         )
     }
@@ -51,13 +59,37 @@ mod tests {
 
     #[test]
     fn ok_with_non_interactive_switch_present() {
-        rule_catches_not("DL3034", "RUN zypper install -n httpd=2.4.24 && zypper clean");
-        rule_catches_not("DL3034", "RUN zypper install --non-interactive httpd=2.4.24 && zypper clean");
-        rule_catches_not("DL3034", "RUN zypper install -y httpd=2.4.24 && zypper clean");
-        rule_catches_not("DL3034", "RUN zypper install --no-confirm httpd=2.4.24 && zypper clean");
-        on_build_rule_catches_not("DL3034", "RUN zypper install -n httpd=2.4.24 && zypper clean");
-        on_build_rule_catches_not("DL3034", "RUN zypper install --non-interactive httpd=2.4.24 && zypper clean");
-        on_build_rule_catches_not("DL3034", "RUN zypper install -y httpd=2.4.24 && zypper clean");
-        on_build_rule_catches_not("DL3034", "RUN zypper install --no-confirm httpd=2.4.24 && zypper clean");
+        rule_catches_not(
+            "DL3034",
+            "RUN zypper install -n httpd=2.4.24 && zypper clean",
+        );
+        rule_catches_not(
+            "DL3034",
+            "RUN zypper install --non-interactive httpd=2.4.24 && zypper clean",
+        );
+        rule_catches_not(
+            "DL3034",
+            "RUN zypper install -y httpd=2.4.24 && zypper clean",
+        );
+        rule_catches_not(
+            "DL3034",
+            "RUN zypper install --no-confirm httpd=2.4.24 && zypper clean",
+        );
+        on_build_rule_catches_not(
+            "DL3034",
+            "RUN zypper install -n httpd=2.4.24 && zypper clean",
+        );
+        on_build_rule_catches_not(
+            "DL3034",
+            "RUN zypper install --non-interactive httpd=2.4.24 && zypper clean",
+        );
+        on_build_rule_catches_not(
+            "DL3034",
+            "RUN zypper install -y httpd=2.4.24 && zypper clean",
+        );
+        on_build_rule_catches_not(
+            "DL3034",
+            "RUN zypper install --no-confirm httpd=2.4.24 && zypper clean",
+        );
     }
 }

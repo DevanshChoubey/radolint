@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3052.hs.
 
 use crate::rule::LabelSchema;
-use crate::rule::{mconcat, simple_rule, DLSeverity, LabelName, LabelType, Rule};
+use crate::rule::{DLSeverity, LabelName, LabelType, Rule, mconcat, simple_rule};
 use dlint_syntax::{Instruction, Pairs};
 
 /// Haskell `rule`.
@@ -63,15 +63,15 @@ fn parse_uri(s: &str) -> bool {
         Some(p) => (&rest[..p], Some(&rest[p + 1..])),
         None => (rest, None),
     };
-    if let Some(f) = frag {
-        if !all_chars(f, |c| c == b'/' || c == b'?' || pchar(c)) {
-            return false;
-        }
+    if let Some(f) = frag
+        && !all_chars(f, |c| c == b'/' || c == b'?' || pchar(c))
+    {
+        return false;
     }
-    if let Some(q) = query {
-        if !all_chars(q, |c| c == b'/' || c == b'?' || pchar(c)) {
-            return false;
-        }
+    if let Some(q) = query
+        && !all_chars(q, |c| c == b'/' || c == b'?' || pchar(c))
+    {
+        return false;
     }
     hier_part(hier)
 }
@@ -129,19 +129,26 @@ fn port_ok(p: &str) -> bool {
 }
 
 fn ipv_future(s: &str) -> bool {
-    let Some(r) = s.strip_prefix('v') else { return false };
+    let Some(r) = s.strip_prefix('v') else {
+        return false;
+    };
     let Some(p) = r.find('.') else { return false };
     p > 0
         && r[..p].bytes().all(|c| c.is_ascii_hexdigit())
         && p + 1 < r.len()
-        && r[p + 1..].bytes().all(|c| unreserved(c) || sub_delim(c) || c == b':')
+        && r[p + 1..]
+            .bytes()
+            .all(|c| unreserved(c) || sub_delim(c) || c == b':')
 }
 
 fn ipv4(s: &str) -> bool {
     let parts: Vec<&str> = s.split('.').collect();
     parts.len() == 4
         && parts.iter().all(|p| {
-            !p.is_empty() && p.len() <= 3 && p.bytes().all(|c| c.is_ascii_digit()) && p.parse::<u32>().map_or(false, |n| n <= 255)
+            !p.is_empty()
+                && p.len() <= 3
+                && p.bytes().all(|c| c.is_ascii_digit())
+                && p.parse::<u32>().is_ok_and(|n| n <= 255)
         })
 }
 
@@ -153,7 +160,7 @@ fn ipv6(s: &str) -> bool {
         Some(p) => (&s[..p], Some(&s[p + 2..])),
         None => (s, None),
     };
-    if tail.map_or(false, |t| t.contains("::")) {
+    if tail.is_some_and(|t| t.contains("::")) {
         return false;
     }
     let groups = |x: &str| -> Option<usize> {
@@ -191,7 +198,7 @@ fn all_chars(s: &str, f: impl Fn(u8) -> bool) -> bool {
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%' {
-            if i + 2 < b.len() + 0 && b[i + 1].is_ascii_hexdigit() && b[i + 2].is_ascii_hexdigit() {
+            if i + 2 < b.len() && b[i + 1].is_ascii_hexdigit() && b[i + 2].is_ascii_hexdigit() {
                 i += 3;
                 continue;
             }
@@ -209,7 +216,10 @@ fn unreserved(c: u8) -> bool {
     c.is_ascii_alphanumeric() || matches!(c, b'-' | b'.' | b'_' | b'~')
 }
 fn sub_delim(c: u8) -> bool {
-    matches!(c, b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'=')
+    matches!(
+        c,
+        b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'='
+    )
 }
 fn pchar(c: u8) -> bool {
     unreserved(c) || sub_delim(c) || c == b':' || c == b'@'
@@ -222,9 +232,12 @@ mod tests {
     use crate::testing::*;
 
     fn config() -> Configuration {
-        let mut c = Configuration::default();
-        c.label_schema = [("urllabel".to_string(), LabelType::Url)].into_iter().collect();
-        c
+        Configuration {
+            label_schema: [("urllabel".to_string(), LabelType::Url)]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        }
     }
 
     #[test]

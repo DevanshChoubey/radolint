@@ -46,8 +46,15 @@ pub enum ErrorFancy {
 /// `Text.Megaparsec.Error.ParseError Text DockerfileError`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PError {
-    Trivial { offset: usize, unexpected: Option<ErrorItem>, expected: BTreeSet<ErrorItem> },
-    Fancy { offset: usize, errors: BTreeSet<ErrorFancy> },
+    Trivial {
+        offset: usize,
+        unexpected: Option<ErrorItem>,
+        expected: BTreeSet<ErrorItem>,
+    },
+    Fancy {
+        offset: usize,
+        errors: BTreeSet<ErrorFancy>,
+    },
 }
 
 pub type PResult<T> = Result<T, PError>;
@@ -61,6 +68,9 @@ pub struct SourcePos {
     pub line: usize,
     pub column: usize,
 }
+
+/// A borrowed parser, as taken by [`Parser::choice`].
+pub type ParserFn<'a, T> = dyn Fn(&mut Parser) -> PResult<T> + 'a;
 
 impl SourcePos {
     /// `sourcePosPretty`
@@ -90,8 +100,16 @@ impl PError {
             Greater => e1,
             Equal => match (e1, e2) {
                 (
-                    PError::Trivial { offset, unexpected: u1, expected: mut p1 },
-                    PError::Trivial { unexpected: u2, expected: p2, .. },
+                    PError::Trivial {
+                        offset,
+                        unexpected: u1,
+                        expected: mut p1,
+                    },
+                    PError::Trivial {
+                        unexpected: u2,
+                        expected: p2,
+                        ..
+                    },
                 ) => {
                     p1.extend(p2);
                     let u = match (u1, u2) {
@@ -99,11 +117,21 @@ impl PError {
                         (Some(x), None) | (None, Some(x)) => Some(x),
                         (Some(x), Some(y)) => Some(x.max(y)),
                     };
-                    PError::Trivial { offset, unexpected: u, expected: p1 }
+                    PError::Trivial {
+                        offset,
+                        unexpected: u,
+                        expected: p1,
+                    }
                 }
                 (e @ PError::Fancy { .. }, PError::Trivial { .. }) => e,
                 (PError::Trivial { .. }, e @ PError::Fancy { .. }) => e,
-                (PError::Fancy { offset, errors: mut x1 }, PError::Fancy { errors: x2, .. }) => {
+                (
+                    PError::Fancy {
+                        offset,
+                        errors: mut x1,
+                    },
+                    PError::Fancy { errors: x2, .. },
+                ) => {
                     x1.extend(x2);
                     PError::Fancy { offset, errors: x1 }
                 }
@@ -114,7 +142,11 @@ impl PError {
     /// `parseErrorTextPretty`
     pub fn text_pretty(&self) -> String {
         match self {
-            PError::Trivial { unexpected, expected, .. } => {
+            PError::Trivial {
+                unexpected,
+                expected,
+                ..
+            } => {
                 if unexpected.is_none() && expected.is_empty() {
                     "unknown parse error\n".to_string()
                 } else {
@@ -140,8 +172,13 @@ impl PError {
 
     fn pointer_len(&self) -> usize {
         match self {
-            PError::Trivial { unexpected: None, .. } => 1,
-            PError::Trivial { unexpected: Some(x), .. } => match x {
+            PError::Trivial {
+                unexpected: None, ..
+            } => 1,
+            PError::Trivial {
+                unexpected: Some(x),
+                ..
+            } => match x {
                 ErrorItem::Tokens(ts) => ts.len(),
                 _ => 1,
             },
@@ -274,7 +311,11 @@ impl ParseError {
     pub fn position(&self) -> SourcePos {
         let chars: Vec<char> = self.input.chars().collect();
         let (line, column, _) = reach_offset(&chars, self.first().offset());
-        SourcePos { name: self.source_name.clone(), line, column }
+        SourcePos {
+            name: self.source_name.clone(),
+            line,
+            column,
+        }
     }
 
     /// hadolint `errorPositionPretty` (`file:line:col`).
@@ -303,14 +344,26 @@ impl ParseError {
         let mut out = String::new();
         for e in &self.errors {
             let (line, col, sline) = reach_offset(&chars, e.offset());
-            let epos = SourcePos { name: file_name.to_string(), line, column: col };
+            let epos = SourcePos {
+                name: file_name.to_string(),
+                line,
+                column: col,
+            };
             let line_number = line.to_string();
             let padding = " ".repeat(line_number.len() + 1);
             let rpshift = col - 1;
             let sline_len = sline.chars().count();
             let elen = e.pointer_len();
-            let pointer_len = if rpshift + elen > sline_len { sline_len - rpshift.min(sline_len) + 1 } else { elen };
-            let rpadding = if pointer_len > 0 { " ".repeat(rpshift) } else { String::new() };
+            let pointer_len = if rpshift + elen > sline_len {
+                sline_len - rpshift.min(sline_len) + 1
+            } else {
+                elen
+            };
+            let rpadding = if pointer_len > 0 {
+                " ".repeat(rpshift)
+            } else {
+                String::new()
+            };
             out.push('\n');
             out.push_str(&epos.pretty());
             out.push_str(":\n");
@@ -366,11 +419,19 @@ fn reach_offset(chars: &[char], offset: usize) -> (usize, usize, String) {
 
 fn with_hints(e: PError, hints: &Hints) -> PError {
     match e {
-        PError::Trivial { offset, unexpected, mut expected } => {
+        PError::Trivial {
+            offset,
+            unexpected,
+            mut expected,
+        } => {
             for h in hints {
                 expected.extend(h.iter().cloned());
             }
-            PError::Trivial { offset, unexpected, expected }
+            PError::Trivial {
+                offset,
+                unexpected,
+                expected,
+            }
         }
         f => f,
     }
@@ -379,7 +440,9 @@ fn with_hints(e: PError, hints: &Hints) -> PError {
 /// megaparsec `toHints`
 fn to_hints(stream_offset: usize, e: &PError) -> Hints {
     match e {
-        PError::Trivial { offset, expected, .. } if *offset == stream_offset && !expected.is_empty() => {
+        PError::Trivial {
+            offset, expected, ..
+        } if *offset == stream_offset && !expected.is_empty() => {
             vec![expected.clone()]
         }
         _ => vec![],
@@ -436,12 +499,20 @@ impl Parser {
     /// `getSourcePos`
     pub fn get_source_pos(&self) -> SourcePos {
         let (line, column, _) = reach_offset(&self.input, self.offset);
-        SourcePos { name: self.source_name.clone(), line, column }
+        SourcePos {
+            name: self.source_name.clone(),
+            line,
+            column,
+        }
     }
 
     /// Wrap a failure into the error bundle `parse` returns.
     pub fn bundle(&self, e: PError) -> ParseError {
-        ParseError { errors: vec![e], source_name: self.source_name.clone(), input: self.src.to_string() }
+        ParseError {
+            errors: vec![e],
+            source_name: self.source_name.clone(),
+            input: self.src.to_string(),
+        }
     }
 
     fn peek(&self) -> Option<char> {
@@ -450,7 +521,10 @@ impl Parser {
 
     /// Core primitive wrapper implementing the hint protocol for leaf parsers.
     /// `f` inspects the state and returns `(value, chars consumed, own hints)` or an error.
-    fn prim<T>(&mut self, f: impl FnOnce(&Parser) -> Result<(T, usize, Hints), PError>) -> PResult<T> {
+    fn prim<T>(
+        &mut self,
+        f: impl FnOnce(&Parser) -> Result<(T, usize, Hints), PError>,
+    ) -> PResult<T> {
         let inh = std::mem::take(&mut self.hints);
         match f(self) {
             Ok((x, n, own)) => {
@@ -463,7 +537,11 @@ impl Parser {
     }
 
     fn trivial_here(&self, unexpected: Option<ErrorItem>, expected: BTreeSet<ErrorItem>) -> PError {
-        PError::Trivial { offset: self.offset, unexpected, expected }
+        PError::Trivial {
+            offset: self.offset,
+            unexpected,
+            expected,
+        }
     }
 
     fn next_item(&self) -> ErrorItem {
@@ -547,7 +625,11 @@ impl Parser {
     }
 
     /// `takeWhileP label f` (never fails; the label becomes a hint)
-    pub fn take_while_p(&mut self, label: Option<&str>, f: impl Fn(char) -> bool) -> PResult<String> {
+    pub fn take_while_p(
+        &mut self,
+        label: Option<&str>,
+        f: impl Fn(char) -> bool,
+    ) -> PResult<String> {
         self.prim(|p| {
             let n = p.input[p.offset..].iter().take_while(|c| f(**c)).count();
             let text: String = p.input[p.offset..p.offset + n].iter().collect();
@@ -560,10 +642,16 @@ impl Parser {
     }
 
     /// `takeWhile1P label f`
-    pub fn take_while1_p(&mut self, label: Option<&str>, f: impl Fn(char) -> bool) -> PResult<String> {
+    pub fn take_while1_p(
+        &mut self,
+        label: Option<&str>,
+        f: impl Fn(char) -> bool,
+    ) -> PResult<String> {
         self.prim(|p| {
             let n = p.input[p.offset..].iter().take_while(|c| f(**c)).count();
-            let el = label.filter(|l| !l.is_empty()).map(|l| ErrorItem::Label(l.to_string()));
+            let el = label
+                .filter(|l| !l.is_empty())
+                .map(|l| ErrorItem::Label(l.to_string()));
             if n == 0 {
                 let ps = el.into_iter().collect::<BTreeSet<_>>();
                 Err(p.trivial_here(Some(p.next_item()), ps))
@@ -592,12 +680,14 @@ impl Parser {
 
     /// `space` (`takeWhileP (Just "white space") isSpace`)
     pub fn space(&mut self) -> PResult<()> {
-        self.take_while_p(Some("white space"), |c| c.is_whitespace()).map(|_| ())
+        self.take_while_p(Some("white space"), |c| c.is_whitespace())
+            .map(|_| ())
     }
 
     /// `space1`
     pub fn space1(&mut self) -> PResult<()> {
-        self.take_while1_p(Some("white space"), |c| c.is_whitespace()).map(|_| ())
+        self.take_while1_p(Some("white space"), |c| c.is_whitespace())
+            .map(|_| ())
     }
 
     /// `empty` / `mzero`
@@ -616,7 +706,12 @@ impl Parser {
     }
 
     fn fancy_failure<T>(&mut self, e: ErrorFancy) -> PResult<T> {
-        self.prim(|p| Err(PError::Fancy { offset: p.offset, errors: BTreeSet::from([e]) }))
+        self.prim(|p| {
+            Err(PError::Fancy {
+                offset: p.offset,
+                errors: BTreeSet::from([e]),
+            })
+        })
     }
 
     /// `unexpected item` (`failure (Just item) mempty`)
@@ -687,7 +782,7 @@ impl Parser {
     }
 
     /// `choice [p1, p2, ...]` (`foldr (<|>) empty`)
-    pub fn choice<T>(&mut self, ps: &[&dyn Fn(&mut Parser) -> PResult<T>]) -> PResult<T> {
+    pub fn choice<T>(&mut self, ps: &[&ParserFn<T>]) -> PResult<T> {
         match ps {
             [] => self.empty(),
             [p, rest @ ..] => self.alt(|s| p(s), |s| s.choice(rest)),
@@ -698,8 +793,16 @@ impl Parser {
     pub fn label<T>(&mut self, l: &str, f: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {
         let inh = std::mem::take(&mut self.hints);
         let start = self.offset;
-        let el = if l.is_empty() { None } else { Some(ErrorItem::Label(l.to_string())) };
-        let cl = if l.is_empty() { None } else { Some(ErrorItem::Label(format!("the rest of {l}"))) };
+        let el = if l.is_empty() {
+            None
+        } else {
+            Some(ErrorItem::Label(l.to_string()))
+        };
+        let cl = if l.is_empty() {
+            None
+        } else {
+            Some(ErrorItem::Label(format!("the rest of {l}")))
+        };
         match f(self) {
             Ok(x) => {
                 let own = std::mem::take(&mut self.hints);
@@ -715,7 +818,9 @@ impl Parser {
                     return Err(e);
                 }
                 let e = match e {
-                    PError::Trivial { offset, unexpected, .. } => PError::Trivial {
+                    PError::Trivial {
+                        offset, unexpected, ..
+                    } => PError::Trivial {
                         offset,
                         unexpected,
                         expected: el.into_iter().collect(),
@@ -870,7 +975,10 @@ impl Parser {
         self.offset = start;
         self.hints = saved;
         match r {
-            Ok(_) => Err(with_hints(self.trivial_here(Some(what), BTreeSet::new()), &inh)),
+            Ok(_) => Err(with_hints(
+                self.trivial_here(Some(what), BTreeSet::new()),
+                &inh,
+            )),
             Err(_) => {
                 self.hints = inh;
                 Ok(())
@@ -899,7 +1007,10 @@ impl Parser {
     }
 
     /// `observing p`
-    pub fn observing<T>(&mut self, f: impl Fn(&mut Parser) -> PResult<T>) -> PResult<Result<T, PError>> {
+    pub fn observing<T>(
+        &mut self,
+        f: impl Fn(&mut Parser) -> PResult<T>,
+    ) -> PResult<Result<T, PError>> {
         let inh = std::mem::take(&mut self.hints);
         let start = self.offset;
         match f(self) {
@@ -941,7 +1052,10 @@ impl Parser {
 
     fn decimal_(&mut self) -> PResult<u128> {
         let s = self.take_while1_p(Some("digit"), |c| c.is_ascii_digit())?;
-        Ok(s.chars().fold(0u128, |a, c| a.wrapping_mul(10).wrapping_add(c.to_digit(10).unwrap() as u128)))
+        Ok(s.chars().fold(0u128, |a, c| {
+            a.wrapping_mul(10)
+                .wrapping_add(c.to_digit(10).unwrap() as u128)
+        }))
     }
 
     /// `L.float` at type `Float` (label "floating point number"): digits followed by a
@@ -964,7 +1078,13 @@ impl Parser {
     fn exponent_text(&mut self) -> PResult<String> {
         self.satisfy(|c| c == 'e' || c == 'E')?;
         let sign = self.option(String::new(), |s| {
-            s.satisfy(|c| c == '-' || c == '+').map(|c| if c == '-' { "-".to_string() } else { String::new() })
+            s.satisfy(|c| c == '-' || c == '+').map(|c| {
+                if c == '-' {
+                    "-".to_string()
+                } else {
+                    String::new()
+                }
+            })
         })?;
         let d = self.take_while1_p(Some("digit"), |c| c.is_ascii_digit())?;
         Ok(format!("e{sign}{d}"))
@@ -976,13 +1096,16 @@ impl Parser {
             let start = p.offset;
             let ahead: Vec<char> = p.input[start..].iter().take(10).copied().collect();
             if ahead.is_empty() {
-                return p.prim(|s| Err(s.trivial_here(Some(ErrorItem::EndOfInput), BTreeSet::new())));
+                return p
+                    .prim(|s| Err(s.trivial_here(Some(ErrorItem::EndOfInput), BTreeSet::new())));
             }
             match read_lit_char(&ahead) {
                 Some((c, n)) => p.prim(|_| Ok((c, n, vec![]))),
                 None => {
                     let c = ahead[0];
-                    p.prim(|s| Err(s.trivial_here(Some(ErrorItem::Tokens(vec![c])), BTreeSet::new())))
+                    p.prim(|s| {
+                        Err(s.trivial_here(Some(ErrorItem::Tokens(vec![c])), BTreeSet::new()))
+                    })
                 }
             }
         })
@@ -1020,7 +1143,10 @@ fn read_lit_char(s: &[char]) -> Option<(char, usize)> {
         return None;
     }
     let num = |radix: u32, skip: usize| -> Option<(char, usize)> {
-        let digits: String = rest[skip..].iter().take_while(|c| c.is_digit(radix)).collect();
+        let digits: String = rest[skip..]
+            .iter()
+            .take_while(|c| c.is_digit(radix))
+            .collect();
         if digits.is_empty() {
             return None;
         }
@@ -1037,11 +1163,40 @@ fn read_lit_char(s: &[char]) -> Option<(char, usize)> {
         return num(16, 1);
     }
     const NAMES: [(&str, u32); 34] = [
-        ("NUL", 0), ("SOH", 1), ("STX", 2), ("ETX", 3), ("EOT", 4), ("ENQ", 5), ("ACK", 6), ("BEL", 7),
-        ("BS", 8), ("HT", 9), ("LF", 10), ("VT", 11), ("FF", 12), ("CR", 13), ("SO", 14), ("SI", 15),
-        ("DLE", 16), ("DC1", 17), ("DC2", 18), ("DC3", 19), ("DC4", 20), ("NAK", 21), ("SYN", 22),
-        ("ETB", 23), ("CAN", 24), ("EM", 25), ("SUB", 26), ("ESC", 27), ("FS", 28), ("GS", 29),
-        ("RS", 30), ("US", 31), ("SP", 32), ("DEL", 127),
+        ("NUL", 0),
+        ("SOH", 1),
+        ("STX", 2),
+        ("ETX", 3),
+        ("EOT", 4),
+        ("ENQ", 5),
+        ("ACK", 6),
+        ("BEL", 7),
+        ("BS", 8),
+        ("HT", 9),
+        ("LF", 10),
+        ("VT", 11),
+        ("FF", 12),
+        ("CR", 13),
+        ("SO", 14),
+        ("SI", 15),
+        ("DLE", 16),
+        ("DC1", 17),
+        ("DC2", 18),
+        ("DC3", 19),
+        ("DC4", 20),
+        ("NAK", 21),
+        ("SYN", 22),
+        ("ETB", 23),
+        ("CAN", 24),
+        ("EM", 25),
+        ("SUB", 26),
+        ("ESC", 27),
+        ("FS", 28),
+        ("GS", 29),
+        ("RS", 30),
+        ("US", 31),
+        ("SP", 32),
+        ("DEL", 127),
     ];
     let text: String = rest.iter().collect();
     let mut best: Option<(&str, u32)> = None;
@@ -1082,19 +1237,49 @@ mod combinator_tests {
     #[test]
     fn string_and_eof() {
         assert_eq!(msg("abc", |p| p.string("abc")), "ok \"abc\"");
-        assert_eq!(msg("abd", |p| p.string("abc")), "unexpected \"abd\"\nexpecting \"abc\"");
-        assert_eq!(msg("", |p| p.string("abc")), "unexpected end of input\nexpecting \"abc\"");
-        assert_eq!(msg("x", |p| p.eof()), "unexpected 'x'\nexpecting end of input");
+        assert_eq!(
+            msg("abd", |p| p.string("abc")),
+            "unexpected \"abd\"\nexpecting \"abc\""
+        );
+        assert_eq!(
+            msg("", |p| p.string("abc")),
+            "unexpected end of input\nexpecting \"abc\""
+        );
+        assert_eq!(
+            msg("x", |p| p.eof()),
+            "unexpected 'x'\nexpecting end of input"
+        );
     }
 
     #[test]
     fn alt_merges_expected_and_try_backtracks() {
         // consumed failure: second branch not tried
         let r = msg("ab", |p| p.alt(|p| p.string("ac"), |p| p.string("ab")));
-        assert_eq!(r, "ok \"ab\"", "string fails empty, so alt tries the other branch");
-        let r = msg("ab", |p| p.alt(|p| { p.char('a')?; p.char('c').map(|c| c.to_string()) }, |p| p.string("ab")));
+        assert_eq!(
+            r, "ok \"ab\"",
+            "string fails empty, so alt tries the other branch"
+        );
+        let r = msg("ab", |p| {
+            p.alt(
+                |p| {
+                    p.char('a')?;
+                    p.char('c').map(|c| c.to_string())
+                },
+                |p| p.string("ab"),
+            )
+        });
         assert_eq!(r, "unexpected 'b'\nexpecting 'c'");
-        let r = msg("ab", |p| p.alt(|p| p.try_(|p| { p.char('a')?; p.char('c').map(|c| c.to_string()) }), |p| p.string("ab")));
+        let r = msg("ab", |p| {
+            p.alt(
+                |p| {
+                    p.try_(|p| {
+                        p.char('a')?;
+                        p.char('c').map(|c| c.to_string())
+                    })
+                },
+                |p| p.string("ab"),
+            )
+        });
         assert_eq!(r, "ok \"ab\"");
         let r = msg("z", |p| p.alt(|p| p.char('a'), |p| p.char('b')));
         assert_eq!(r, "unexpected 'z'\nexpecting 'a' or 'b'");
@@ -1102,7 +1287,9 @@ mod combinator_tests {
 
     #[test]
     fn labels_and_hints() {
-        let r = msg("1", |p| p.label("a letter", |p| p.satisfy(|c| c.is_alphabetic())));
+        let r = msg("1", |p| {
+            p.label("a letter", |p| p.satisfy(|c| c.is_alphabetic()))
+        });
         assert_eq!(r, "unexpected '1'\nexpecting a letter");
         // hints from a successful empty `many` are added to the following failure
         let r = msg("1", |p| {
@@ -1120,17 +1307,44 @@ mod combinator_tests {
 
     #[test]
     fn many_some_sep() {
-        assert_eq!(msg("aaab", |p| p.many(|p| p.char('a'))), "ok ['a', 'a', 'a']");
-        assert_eq!(msg("a,a,", |p| p.sep_end_by(|p| p.char('a'), |p| p.char(','))), "ok ['a', 'a']");
-        assert_eq!(msg("xxy", |p| p.many_till(|p| p.any_single(), |p| p.char('y'))), "ok ['x', 'x']");
-        assert_eq!(msg("", |p| p.some(|p| p.char('a'))), "unexpected end of input\nexpecting 'a'");
+        assert_eq!(
+            msg("aaab", |p| p.many(|p| p.char('a'))),
+            "ok ['a', 'a', 'a']"
+        );
+        assert_eq!(
+            msg("a,a,", |p| p.sep_end_by(|p| p.char('a'), |p| p.char(','))),
+            "ok ['a', 'a']"
+        );
+        assert_eq!(
+            msg("xxy", |p| p.many_till(|p| p.any_single(), |p| p.char('y'))),
+            "ok ['x', 'x']"
+        );
+        assert_eq!(
+            msg("", |p| p.some(|p| p.char('a'))),
+            "unexpected end of input\nexpecting 'a'"
+        );
     }
 
     #[test]
     fn not_followed_by_and_look_ahead() {
-        assert_eq!(msg("ab", |p| { p.not_followed_by(|p| p.char('b'))?; p.char('a') }), "ok 'a'");
-        assert_eq!(msg("ab", |p| p.not_followed_by(|p| p.char('a'))), "unexpected 'a'");
-        assert_eq!(msg("ab", |p| { p.look_ahead(|p| p.char('a'))?; p.string("ab") }), "ok \"ab\"");
+        assert_eq!(
+            msg("ab", |p| {
+                p.not_followed_by(|p| p.char('b'))?;
+                p.char('a')
+            }),
+            "ok 'a'"
+        );
+        assert_eq!(
+            msg("ab", |p| p.not_followed_by(|p| p.char('a'))),
+            "unexpected 'a'"
+        );
+        assert_eq!(
+            msg("ab", |p| {
+                p.look_ahead(|p| p.char('a'))?;
+                p.string("ab")
+            }),
+            "ok \"ab\""
+        );
     }
 
     #[test]
@@ -1157,7 +1371,10 @@ mod combinator_tests {
     #[test]
     fn lexer() {
         assert_eq!(msg("12x", |p| p.decimal()), "ok 12");
-        assert_eq!(msg("x", |p| p.decimal()), "unexpected 'x'\nexpecting integer");
+        assert_eq!(
+            msg("x", |p| p.decimal()),
+            "unexpected 'x'\nexpecting integer"
+        );
         assert_eq!(msg("1.5s", |p| p.float()), "ok 1.5");
         assert_eq!(msg("\\n", |p| p.char_literal()), "ok '\\n'");
         assert_eq!(msg("a", |p| p.char_literal()), "ok 'a'");

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3007.hs.
 
-use crate::rule::{simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -11,7 +11,11 @@ pub fn rule() -> Box<dyn Rule> {
     let message = "Using latest is prone to errors if the image will ever update. Pin the version explicitly \
                    to a release tag";
     let check = |instr: &Instruction<_>| match instr {
-        Instruction::From(BaseImage { tag: Some(_), digest: Some(_), .. }) => true,
+        Instruction::From(BaseImage {
+            tag: Some(_),
+            digest: Some(_),
+            ..
+        }) => true,
         Instruction::From(BaseImage { tag: Some(t), .. }) => t.un_tag != "latest",
         _ => true,
     };

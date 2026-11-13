@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/JUnit.hs.
 
-use super::format::{error_bundle_pretty, error_position, severity_text, FormatResult};
+use super::format::{FormatResult, error_bundle_pretty, error_position, severity_text};
 use crate::meta::get_short_version;
 use crate::rule::CheckFailure;
 use dlint_parser::ParseError;
@@ -105,11 +105,22 @@ fn current_time_parts() -> (i64, u32, u32, u32, u32, u32) {
     let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     let y = if m <= 2 { y + 1 } else { y };
-    (y, m, d, (rem / 3600) as u32, ((rem % 3600) / 60) as u32, (rem % 60) as u32)
+    (
+        y,
+        m,
+        d,
+        (rem / 3600) as u32,
+        ((rem % 3600) / 60) as u32,
+        (rem % 60) as u32,
+    )
 }
 
 /// Haskell `hWrite`.
-pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_report: Option<&str>) -> std::io::Result<()> {
+pub fn h_write(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     let time = current_time_parts();
     let root = root(time, results, file_path_in_report);
     let mut out = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -118,25 +129,50 @@ pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_re
 }
 
 fn run_id(t: (i64, u32, u32, u32, u32, u32)) -> String {
-    format!("{:04}{:02}{:02}_{:02}{:02}{:02}", t.0, t.1, t.2, t.3, t.4, t.5)
+    format!(
+        "{:04}{:02}{:02}_{:02}{:02}{:02}",
+        t.0, t.1, t.2, t.3, t.4, t.5
+    )
 }
 
 fn run_name(t: (i64, u32, u32, u32, u32, u32)) -> String {
-    format!("Hadolint run at {:04}-{:02}-{:02} {:02}:{:02}:{:02}", t.0, t.1, t.2, t.3, t.4, t.5)
+    format!(
+        "Hadolint run at {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+        t.0, t.1, t.2, t.3, t.4, t.5
+    )
 }
 
-fn root(t: (i64, u32, u32, u32, u32, u32), results: &[FormatResult], maybe_filepath: Option<&str>) -> Element {
+fn root(
+    t: (i64, u32, u32, u32, u32, u32),
+    results: &[FormatResult],
+    maybe_filepath: Option<&str>,
+) -> Element {
     Element {
         element_name: "testsuites",
-        element_attributes: attrs(vec![("id", run_id(t)), ("name", run_name(t)), ("time", "0.001".to_string())]),
-        element_nodes: results.iter().map(|r| render_result(r, maybe_filepath)).collect(),
+        element_attributes: attrs(vec![
+            ("id", run_id(t)),
+            ("name", run_name(t)),
+            ("time", "0.001".to_string()),
+        ]),
+        element_nodes: results
+            .iter()
+            .map(|r| render_result(r, maybe_filepath))
+            .collect(),
     }
 }
 
 fn render_result(result: &FormatResult, maybe_filepath: Option<&str>) -> Node {
-    let FormatResult { file_name: filename, errors, checks } = result;
+    let FormatResult {
+        file_name: filename,
+        errors,
+        checks,
+    } = result;
     // `null maybeFilepath` is True only for Nothing
-    let file: String = if maybe_filepath.is_none() { filename.clone() } else { maybe_filepath.unwrap_or("").to_string() };
+    let file: String = if maybe_filepath.is_none() {
+        filename.clone()
+    } else {
+        maybe_filepath.unwrap_or("").to_string()
+    };
     let error_nodes: Vec<Node> = errors.iter().map(|e| error_to_node(e, &file)).collect();
     let check_nodes: Vec<Node> = checks.iter().map(|c| check_to_node(c, &file)).collect();
     let parse_errors = error_nodes.len();
@@ -170,7 +206,10 @@ fn error_to_node(err: &ParseError, filename: &str) -> Node {
             element_name: "failure",
             element_attributes: attrs(vec![
                 ("type", "error".to_string()),
-                ("message", format!("parse error at line {line}, column {column}")),
+                (
+                    "message",
+                    format!("parse error at line {line}, column {column}"),
+                ),
             ]),
             element_nodes: vec![Node::Content(unlines(&[
                 format!("Parse Error in {filename}"),
@@ -183,12 +222,20 @@ fn error_to_node(err: &ParseError, filename: &str) -> Node {
 }
 
 fn check_to_node(check: &CheckFailure, filename: &str) -> Node {
-    let CheckFailure { code, severity, message, line } = check;
+    let CheckFailure {
+        code,
+        severity,
+        message,
+        line,
+    } = check;
     let sev = severity_text(*severity);
     Node::Element(Element {
         element_name: "testcase",
         element_attributes: attrs(vec![
-            ("id", format!("{}.rule.{}", provider_id(), code.un_rule_code)),
+            (
+                "id",
+                format!("{}.rule.{}", provider_id(), code.un_rule_code),
+            ),
             ("time", "0.001".to_string()),
         ]),
         element_nodes: vec![Node::Element(Element {
@@ -217,15 +264,32 @@ mod tests {
 
     /// Pull the run id/name out of the output (the spec computes them from "now").
     fn expectation(body: &str, cap: &str) -> String {
-        let id = cap.split("id=\"").nth(1).unwrap().split('"').next().unwrap();
-        let name = cap.split("name=\"").nth(1).unwrap().split('"').next().unwrap();
+        let id = cap
+            .split("id=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
+        let name = cap
+            .split("name=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
         format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites id=\"{id}\" name=\"{name}\" time=\"0.001\">{body}</testsuites>"
         )
     }
 
     fn cf(code: &str, severity: DLSeverity, message: &str, line: i64) -> CheckFailure {
-        CheckFailure { code: code.into(), severity, message: message.to_string(), line }
+        CheckFailure {
+            code: code.into(),
+            severity,
+            message: message.to_string(),
+            line,
+        }
     }
 
     fn case(code: &str, sev: &str, msg: &str, line: i64) -> String {
@@ -250,8 +314,15 @@ mod tests {
 
     #[test]
     fn print_one_failed_rule() {
-        let cap = capture_format(OutputFormat::JUnit, vec![cf("DL2001", DLSeverity::DLWarningC, "test", 1)], true);
-        assert_eq!(cap, expectation(&suite(1, &case("DL2001", "warning", "test", 1)), &cap));
+        let cap = capture_format(
+            OutputFormat::JUnit,
+            vec![cf("DL2001", DLSeverity::DLWarningC, "test", 1)],
+            true,
+        );
+        assert_eq!(
+            cap,
+            expectation(&suite(1, &case("DL2001", "warning", "test", 1)), &cap)
+        );
     }
 
     #[test]
@@ -264,7 +335,11 @@ mod tests {
             ],
             true,
         );
-        let inner = format!("{}{}", case("DL2001", "warning", "test", 1), case("DL2003", "info", "test 2", 3));
+        let inner = format!(
+            "{}{}",
+            case("DL2001", "warning", "test", 1),
+            case("DL2003", "info", "test 2", 3)
+        );
         assert_eq!(cap, expectation(&suite(2, &inner), &cap));
     }
 }

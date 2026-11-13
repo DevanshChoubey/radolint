@@ -61,15 +61,24 @@ mod tests {
 
     #[test]
     fn ok_with_zypper_clean() {
-        rule_catches_not("DL3036", "RUN zypper install -y mariadb=10.4 && zypper clean");
+        rule_catches_not(
+            "DL3036",
+            "RUN zypper install -y mariadb=10.4 && zypper clean",
+        );
         rule_catches_not("DL3036", "RUN zypper install -y mariadb=10.4 && zypper cc");
-        on_build_rule_catches_not("DL3036", "RUN zypper install -y mariadb=10.4 && zypper clean");
+        on_build_rule_catches_not(
+            "DL3036",
+            "RUN zypper install -y mariadb=10.4 && zypper clean",
+        );
         on_build_rule_catches_not("DL3036", "RUN zypper install -y mariadb=10.4 && zypper cc");
     }
 
     #[test]
     fn not_ok_with_clean_before_install() {
-        rule_catches("DL3036", "RUN zypper clean && zypper install -y mariadb=10.4");
+        rule_catches(
+            "DL3036",
+            "RUN zypper clean && zypper install -y mariadb=10.4",
+        );
     }
 
     #[test]

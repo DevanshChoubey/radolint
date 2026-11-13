@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/app/Main.hs.
 
-use dlint_core::config::commandline::{parse_commandline, CommandlineConfig, CommandlineOutcome};
+use dlint_core::config::commandline::{CommandlineConfig, CommandlineOutcome, parse_commandline};
 use dlint_core::config::configfile::get_config_from_file;
-use dlint_core::config::configuration::{apply_partial_configuration, Configuration, PartialConfiguration};
+use dlint_core::config::configuration::{
+    Configuration, PartialConfiguration, apply_partial_configuration,
+};
 use dlint_core::config::environment::get_config_from_environment;
 use dlint_core::formatter::format::{FormatResult, OutputFormat};
 use dlint_core::formatter::write;
@@ -41,7 +43,13 @@ fn run_lint(cmd: &CommandlineConfig, conf: &Configuration) -> ! {
             exit(1)
         }
     };
-    if let Err(e) = write(&cmd.output, &conf.formats, conf.no_color, cmd.file_path_in_report_option.as_deref(), &res) {
+    if let Err(e) = write(
+        &cmd.output,
+        &conf.formats,
+        conf.no_color,
+        cmd.file_path_in_report_option.as_deref(),
+        &res,
+    ) {
         eprintln!("{e}");
         exit(1)
     }
@@ -90,7 +98,9 @@ fn main() {
     };
     let running_config = apply_partial_configuration(
         Configuration::default(),
-        from_environment.append(from_configfile).append(from_commandline),
+        from_environment
+            .append(from_configfile)
+            .append(from_commandline),
     );
     if running_config.verbose {
         eprintln!("{}", running_config.pretty());

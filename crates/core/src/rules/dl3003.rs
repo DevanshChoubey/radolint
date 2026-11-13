@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3003.hs.
 
-use crate::rule::{fold_arguments, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, fold_arguments, simple_rule};
 use crate::shell::using_program;
 use dlint_syntax::{Instruction, RunArgs};
 

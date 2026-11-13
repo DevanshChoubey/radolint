@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3002.hs.
 
 use crate::rule::{
-    empty_state, modify, pipe, very_custom_rule, CheckFailure, DLSeverity, Failures, Rule,
-    RuleCode, State,
+    CheckFailure, DLSeverity, Failures, Rule, RuleCode, State, empty_state, modify, pipe,
+    very_custom_rule,
 };
 use dlint_syntax::{Instruction, Linenumber};
 use std::collections::BTreeMap;
@@ -42,7 +42,10 @@ pub fn rule() -> Box<dyn Rule> {
     };
 
     let mark_failures = move |st: State<Acc>| -> Failures {
-        let State { failures: mut fails, state } = st;
+        let State {
+            failures: mut fails,
+            state,
+        } = st;
         match state {
             Acc::Acc(_, m) => {
                 // Map.foldl' (Seq.|>) fails (fmap makeFail st): in ascending key order
@@ -135,7 +138,13 @@ mod tests {
     fn warns_on_transitive_root_user() {
         rule_catches(
             "DL3002",
-            &df(&["FROM debian as base", "USER root", "RUN something", "FROM base", "RUN something else"]),
+            &df(&[
+                "FROM debian as base",
+                "USER root",
+                "RUN something",
+                "FROM base",
+                "RUN something else",
+            ]),
         );
     }
 

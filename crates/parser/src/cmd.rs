@@ -3,10 +3,10 @@
 //!
 //! Parsers are `fn(&mut Parser) -> PResult<T>`; `?esc` is `p.esc`. See `combinator.rs`.
 
-use dlint_syntax::*;
 use crate::arguments::arguments;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::reserved;
+use dlint_syntax::*;
 
 /// Haskell `parseCmd` (Cmd.hs).
 pub fn parse_cmd(p: &mut Parser) -> PResult<Instruction<String>> {
@@ -55,7 +55,10 @@ mod tests {
 
     #[test]
     fn parses_commas_correctly() {
-        assert_ast("CMD [ \"echo\" ,\"-e\" , \"1\"]", vec![list(&["echo", "-e", "1"])]);
+        assert_ast(
+            "CMD [ \"echo\" ,\"-e\" , \"1\"]",
+            vec![list(&["echo", "-e", "1"])],
+        );
     }
 
     #[test]
@@ -69,7 +72,10 @@ mod tests {
         .iter()
         .map(|l| format!("{}\n", l))
         .collect::<String>();
-        assert_ast(&cmd, vec![list(&["/bin/sh", "-c", "echo foo &&  echo bar"])]);
+        assert_ast(
+            &cmd,
+            vec![list(&["/bin/sh", "-c", "echo foo &&  echo bar"])],
+        );
     }
 
     #[test]
@@ -96,7 +102,13 @@ mod tests {
     #[test]
     fn parse_exec_style_cmd_with_escaped_characters() {
         let cmd = "CMD [ \"sbt\", \"set reStart / mainClass := Some(\\\"Main\\\");~reStart\" ]\n";
-        assert_ast(cmd, vec![list(&["sbt", "set reStart / mainClass := Some(\"Main\");~reStart"])]);
+        assert_ast(
+            cmd,
+            vec![list(&[
+                "sbt",
+                "set reStart / mainClass := Some(\"Main\");~reStart",
+            ])],
+        );
     }
 
     #[test]

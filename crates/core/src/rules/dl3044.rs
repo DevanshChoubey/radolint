@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3044.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, modify, CheckFailure, DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
 use dlint_syntax::{Instruction, Pairs};
 use std::collections::BTreeSet;
@@ -11,8 +11,7 @@ use std::collections::BTreeSet;
 pub fn rule() -> Box<dyn Rule> {
     let code = "DL3044";
     let severity = DLSeverity::DLErrorC;
-    let message =
-        "Do not refer to an environment variable within the same `ENV` statement where it is defined.";
+    let message = "Do not refer to an environment variable within the same `ENV` statement where it is defined.";
 
     let check = move |line, st: State<BTreeSet<String>>, instr: &Instruction<_>| match instr {
         Instruction::Env(pairs) => {
@@ -20,7 +19,10 @@ pub fn rule() -> Box<dyn Rule> {
             let bad = list_of_references(pairs)
                 .iter()
                 .any(|env| !st.state.contains(env));
-            let new_state = modify(|s: BTreeSet<String>| s.union(&defined).cloned().collect(), st);
+            let new_state = modify(
+                |s: BTreeSet<String>| s.union(&defined).cloned().collect(),
+                st,
+            );
             if !bad {
                 new_state
             } else {

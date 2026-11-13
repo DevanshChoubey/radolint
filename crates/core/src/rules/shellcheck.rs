@@ -33,7 +33,7 @@ fn scrule() -> Box<dyn Rule> {
 fn check(line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>) -> State<Acc> {
     match instr {
         Instruction::From(bi) => modify(|a| new_stage(bi, a), st),
-        Instruction::Arg(name, _) => modify(|a| add_vars(&[name.clone()], a), st),
+        Instruction::Arg(name, _) => modify(|a| add_vars(std::slice::from_ref(name), a), st),
         Instruction::Env(pairs) => {
             let names: Vec<String> = pairs.iter().map(|(k, _)| k.clone()).collect();
             modify(|a| add_vars(&names, a), st)
@@ -57,16 +57,21 @@ fn check(line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>) -> 
 
 fn get_failures(line: Linenumber, args: &Arguments<ParsedShell>, s: &Acc) -> Vec<CheckFailure> {
     match s {
-        Acc::Empty => {
-            fold_arguments(|script| run_shell_check(line, &shell::default_shell_opts(), script), args)
-        }
+        Acc::Empty => fold_arguments(
+            |script| run_shell_check(line, &shell::default_shell_opts(), script),
+            args,
+        ),
         Acc::Acc { opts, .. } => fold_arguments(|script| run_shell_check(line, opts, script), args),
     }
 }
 
 /// `Set.fromList` over `CheckFailure`, whose `Ord` compares only the line: elements with the same
 /// line are equal, so a later one replaces an earlier one and the result is ascending by line.
-fn run_shell_check(line: Linenumber, options: &ShellOpts, script: &ParsedShell) -> Vec<CheckFailure> {
+fn run_shell_check(
+    line: Linenumber,
+    options: &ShellOpts,
+    script: &ParsedShell,
+) -> Vec<CheckFailure> {
     let mut set: Vec<CheckFailure> = Vec::new();
     for c in shell::shellcheck(options, script) {
         let f = to_failure(line, &c);
@@ -91,7 +96,13 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
                 Some(a) => BTreeMap::from([(0, a.un_image_alias.clone())]),
             },
         },
-        Acc::Acc { opts: _, default_opts, stage_idx, stage_opts, stages } => {
+        Acc::Acc {
+            opts: _,
+            default_opts,
+            stage_idx,
+            stage_opts,
+            stages,
+        } => {
             let from_alias = |idx: i64| -> BTreeMap<i64, String> {
                 match alias {
                     None => stages.clone(),
@@ -151,7 +162,10 @@ fn add_vars(vars: &[String], acc: Acc) -> Acc {
             let d = shell::default_shell_opts();
             let mut env_vars = d.env_vars.clone();
             env_vars.extend(vars.iter().cloned());
-            let opts = ShellOpts { shell_name: d.shell_name.clone(), env_vars };
+            let opts = ShellOpts {
+                shell_name: d.shell_name.clone(),
+                env_vars,
+            };
             Acc::Acc {
                 opts: opts.clone(),
                 default_opts: d,
@@ -160,11 +174,20 @@ fn add_vars(vars: &[String], acc: Acc) -> Acc {
                 stages: BTreeMap::new(),
             }
         }
-        Acc::Acc { opts, default_opts, stage_idx, stage_opts, stages } => {
+        Acc::Acc {
+            opts,
+            default_opts,
+            stage_idx,
+            stage_opts,
+            stages,
+        } => {
             let d = shell::default_shell_opts();
             let mut env_vars = opts.env_vars.clone();
             env_vars.extend(vars.iter().cloned());
-            let new_opts = ShellOpts { shell_name: d.shell_name, env_vars };
+            let new_opts = ShellOpts {
+                shell_name: d.shell_name,
+                env_vars,
+            };
             Acc::Acc {
                 stage_opts: map_update(stage_opts, stage_idx, &new_opts),
                 opts: new_opts,
@@ -180,7 +203,10 @@ fn set_shell(sh: &str, acc: Acc) -> Acc {
     match acc {
         Acc::Empty => {
             let d = shell::default_shell_opts();
-            let opts = ShellOpts { shell_name: sh.to_string(), env_vars: d.env_vars.clone() };
+            let opts = ShellOpts {
+                shell_name: sh.to_string(),
+                env_vars: d.env_vars.clone(),
+            };
             Acc::Acc {
                 opts: opts.clone(),
                 default_opts: d,
@@ -189,8 +215,17 @@ fn set_shell(sh: &str, acc: Acc) -> Acc {
                 stages: BTreeMap::new(),
             }
         }
-        Acc::Acc { opts, default_opts, stage_idx, stage_opts, stages } => {
-            let new_opts = ShellOpts { shell_name: sh.to_string(), env_vars: opts.env_vars.clone() };
+        Acc::Acc {
+            opts,
+            default_opts,
+            stage_idx,
+            stage_opts,
+            stages,
+        } => {
+            let new_opts = ShellOpts {
+                shell_name: sh.to_string(),
+                env_vars: opts.env_vars.clone(),
+            };
             Acc::Acc {
                 stage_opts: map_update(stage_opts, stage_idx, &new_opts),
                 opts: new_opts,
@@ -217,8 +252,17 @@ fn shell_pragma(sh: &str, acc: Acc) -> Acc {
                 stages: BTreeMap::new(),
             }
         }
-        Acc::Acc { opts, default_opts, stage_idx, stage_opts, stages } => {
-            let new_opts = ShellOpts { shell_name: sh.to_string(), env_vars: opts.env_vars.clone() };
+        Acc::Acc {
+            opts,
+            default_opts,
+            stage_idx,
+            stage_opts,
+            stages,
+        } => {
+            let new_opts = ShellOpts {
+                shell_name: sh.to_string(),
+                env_vars: opts.env_vars.clone(),
+            };
             Acc::Acc {
                 stage_opts: map_update(stage_opts, stage_idx, &new_opts),
                 opts: new_opts,
@@ -340,7 +384,12 @@ mod tests {
 
     #[test]
     fn can_change_the_shell_check_to_bash() {
-        let df = ["SHELL [\"/bin/bash\", \"-eo\", \"pipefail\", \"-c\"]", "RUN echo $RANDOM", ""].join("\n");
+        let df = [
+            "SHELL [\"/bin/bash\", \"-eo\", \"pipefail\", \"-c\"]",
+            "RUN echo $RANDOM",
+            "",
+        ]
+        .join("\n");
         // This is debatable, as it should actually pass, but detecting it correctly
         // is quite difficult
         both(&df, false, true);
@@ -360,7 +409,12 @@ mod tests {
 
     #[test]
     fn does_not_complain_on_ash_shell() {
-        let df = ["SHELL [\"/bin/ash\", \"-o\", \"pipefail\", \"-c\"]", "RUN echo hello", ""].join("\n");
+        let df = [
+            "SHELL [\"/bin/ash\", \"-o\", \"pipefail\", \"-c\"]",
+            "RUN echo hello",
+            "",
+        ]
+        .join("\n");
         both(&df, true, true);
     }
 

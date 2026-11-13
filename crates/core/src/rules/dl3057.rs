@@ -27,30 +27,37 @@ pub fn rule() -> Box<dyn Rule> {
     let severity = DLSeverity::DLIgnoreC;
     let message = "`HEALTHCHECK` instruction missing.";
 
-    let check = |line: Linenumber, state: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
-        match instr {
-            Instruction::From(BaseImage { image, alias: Some(als), .. }) => {
-                let sid = StageID {
-                    src: image.image_name.clone(),
-                    name: als.un_image_alias.clone(),
-                    line,
-                };
-                let src = image.image_name.clone();
-                modify(move |a| current_stage(&src, sid, a), state)
+    let check =
+        |line: Linenumber, state: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+            match instr {
+                Instruction::From(BaseImage {
+                    image,
+                    alias: Some(als),
+                    ..
+                }) => {
+                    let sid = StageID {
+                        src: image.image_name.clone(),
+                        name: als.un_image_alias.clone(),
+                        line,
+                    };
+                    let src = image.image_name.clone();
+                    modify(move |a| current_stage(&src, sid, a), state)
+                }
+                Instruction::From(BaseImage {
+                    image, alias: None, ..
+                }) => {
+                    let sid = StageID {
+                        src: image.image_name.clone(),
+                        name: image.image_name.clone(),
+                        line,
+                    };
+                    let src = image.image_name.clone();
+                    modify(move |a| current_stage(&src, sid, a), state)
+                }
+                Instruction::Healthcheck(_) => modify(good_stage, state),
+                _ => state,
             }
-            Instruction::From(BaseImage { image, alias: None, .. }) => {
-                let sid = StageID {
-                    src: image.image_name.clone(),
-                    name: image.image_name.clone(),
-                    line,
-                };
-                let src = image.image_name.clone();
-                modify(move |a| current_stage(&src, sid, a), state)
-            }
-            Instruction::Healthcheck(_) => modify(good_stage, state),
-            _ => state,
-        }
-    };
+        };
 
     let mark_failures = move |st: State<Acc>| -> Failures {
         match st.state {
@@ -148,14 +155,21 @@ mod tests {
 
     #[test]
     fn ok_with_one_healthcheck_instruction() {
-        rule_catches_not("DL3057", &unlines(&["FROM scratch", "HEALTHCHECK CMD /bin/bla"]));
+        rule_catches_not(
+            "DL3057",
+            &unlines(&["FROM scratch", "HEALTHCHECK CMD /bin/bla"]),
+        );
     }
 
     #[test]
     fn ok_with_inheriting_healthcheck_instruction() {
         rule_catches_not(
             "DL3057",
-            &unlines(&["FROM scratch AS base", "HEALTHCHECK CMD /bin/bla", "FROM base"]),
+            &unlines(&[
+                "FROM scratch AS base",
+                "HEALTHCHECK CMD /bin/bla",
+                "FROM base",
+            ]),
         );
     }
 
@@ -195,7 +209,11 @@ mod tests {
     fn warn_when_not_inheriting_with_no_healthcheck_instruction() {
         rule_catches(
             "DL3057",
-            &unlines(&["FROM scratch AS base", "HEALTHCHECK CMD /bin/bla", "FROM scratch"]),
+            &unlines(&[
+                "FROM scratch AS base",
+                "HEALTHCHECK CMD /bin/bla",
+                "FROM scratch",
+            ]),
         );
     }
 }

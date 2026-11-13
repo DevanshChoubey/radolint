@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3048.hs.
 
-use crate::rule::{simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, simple_rule};
 use dlint_syntax::Instruction;
 
 /// Haskell `rule`.
@@ -16,8 +16,11 @@ pub fn rule() -> Box<dyn Rule> {
 
     fn has_no_invalid_key(prs: &[(String, String)]) -> bool {
         !prs.iter().any(|(l, _v)| {
-            !l.chars().next().map_or(false, |c| c.is_ascii_lowercase())
-                || !l.chars().last().map_or(false, |c| c.is_ascii_lowercase() || c.is_ascii_digit())
+            !l.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+                || !l
+                    .chars()
+                    .last()
+                    .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
                 || contains_illegal_char(l)
                 || has_reserved_namespace(l)
                 || has_consecutive_separators(l)
@@ -34,7 +37,9 @@ fn contains_illegal_char(l: &str) -> bool {
 
 /// Haskell `hasReservedNamespace`.
 fn has_reserved_namespace(l: &str) -> bool {
-    l.starts_with("com.docker.") || l.starts_with("io.docker.") || l.starts_with("org.dockerproject.")
+    l.starts_with("com.docker.")
+        || l.starts_with("io.docker.")
+        || l.starts_with("org.dockerproject.")
 }
 
 /// Haskell `hasConsecutiveSeparators`.

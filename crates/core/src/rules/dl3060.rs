@@ -29,37 +29,42 @@ fn dl3060() -> Box<dyn Rule> {
     let severity = DLSeverity::DLInfoC;
     let message = "`yarn cache clean` missing after `yarn install` was run.";
 
-    let check = |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
-        match instr {
-            Instruction::From(from) => {
-                let from = from.clone();
-                modify(move |a| remember_stage(line, from, a), st)
-            }
-            Instruction::Run(RunArgs(args, flags)) => {
-                if fold_arguments(|a| shell::any_commands(yarn_install, a), args)
-                    && fold_arguments(|a| shell::no_commands(yarn_cache_clean, a), args)
-                    && !utils::has_cache_or_tmpfs_mount_with(".cache/yarn", flags)
-                {
-                    return modify(move |a| remember_line(line, a), st);
+    let check =
+        |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+            match instr {
+                Instruction::From(from) => {
+                    let from = from.clone();
+                    modify(move |a| remember_stage(line, from, a), st)
                 }
-                if fold_arguments(|a| shell::any_commands(yarn_install, a), args)
-                    && fold_arguments(|a| shell::any_commands(yarn_cache_clean, a), args)
-                    && fold_arguments(is_clean_before_install, args)
-                {
-                    modify(move |a| remember_line(line, a), st)
-                } else {
-                    st
+                Instruction::Run(RunArgs(args, flags)) => {
+                    if fold_arguments(|a| shell::any_commands(yarn_install, a), args)
+                        && fold_arguments(|a| shell::no_commands(yarn_cache_clean, a), args)
+                        && !utils::has_cache_or_tmpfs_mount_with(".cache/yarn", flags)
+                    {
+                        return modify(move |a| remember_line(line, a), st);
+                    }
+                    if fold_arguments(|a| shell::any_commands(yarn_install, a), args)
+                        && fold_arguments(|a| shell::any_commands(yarn_cache_clean, a), args)
+                        && fold_arguments(is_clean_before_install, args)
+                    {
+                        modify(move |a| remember_line(line, a), st)
+                    } else {
+                        st
+                    }
                 }
+                _ => st,
             }
-            _ => st,
-        }
-    };
+        };
 
     // Produce failures from the final state Acc
     let mark_failures = move |st: State<Acc>| -> Failures {
         match st.state {
             Acc::Empty => st.failures,
-            Acc::Acc { current, active, inactive } => {
+            Acc::Acc {
+                current,
+                active,
+                inactive,
+            } => {
                 let mut out = vec![];
                 for (line, from) in inactive.iter() {
                     let fail = || CheckFailure {
@@ -70,10 +75,16 @@ fn dl3060() -> Box<dyn Rule> {
                     };
                     if *from == current {
                         out.push(fail());
-                    } else if let BaseImage { alias: Some(ImageAlias { un_image_alias: als }), .. } = from {
-                        if active.contains_key(als) {
-                            out.push(fail());
-                        }
+                    } else if let BaseImage {
+                        alias:
+                            Some(ImageAlias {
+                                un_image_alias: als,
+                            }),
+                        ..
+                    } = from
+                        && active.contains_key(als)
+                    {
+                        out.push(fail());
                     }
                 }
                 out
@@ -92,12 +103,22 @@ fn remember_stage(line: Linenumber, stage: BaseImage, acc: Acc) -> Acc {
         Acc::Empty => {
             let mut active = BTreeMap::new();
             active.insert(als, line);
-            Acc::Acc { current: stage, active, inactive: BTreeMap::new() }
+            Acc::Acc {
+                current: stage,
+                active,
+                inactive: BTreeMap::new(),
+            }
         }
-        Acc::Acc { active, inactive, .. } => {
+        Acc::Acc {
+            active, inactive, ..
+        } => {
             let mut active = active;
             active.insert(als, line);
-            Acc::Acc { current: stage, active, inactive }
+            Acc::Acc {
+                current: stage,
+                active,
+                inactive,
+            }
         }
     }
 }
@@ -108,11 +129,23 @@ fn remember_line(line: Linenumber, acc: Acc) -> Acc {
         Acc::Empty => {
             let mut inactive = BTreeMap::new();
             inactive.insert(line, scratch());
-            Acc::Acc { current: scratch(), active: BTreeMap::new(), inactive }
+            Acc::Acc {
+                current: scratch(),
+                active: BTreeMap::new(),
+                inactive,
+            }
         }
-        Acc::Acc { current, active, mut inactive } => {
+        Acc::Acc {
+            current,
+            active,
+            mut inactive,
+        } => {
             inactive.insert(line, current.clone());
-            Acc::Acc { current, active, inactive }
+            Acc::Acc {
+                current,
+                active,
+                inactive,
+            }
         }
     }
 }
@@ -198,13 +231,27 @@ mod tests {
     }
     #[test]
     fn not_ok_when_yarn_install_is_in_last_stage_wo_yarn_clean() {
-        let d = ["FROM node:lts-alpine as foo", "RUN hey!", "FROM scratch", "RUN yarn install", ""].join("\n");
+        let d = [
+            "FROM node:lts-alpine as foo",
+            "RUN hey!",
+            "FROM scratch",
+            "RUN yarn install",
+            "",
+        ]
+        .join("\n");
         rule_catches("DL3060", &d);
         on_build_rule_catches("DL3060", &d);
     }
     #[test]
     fn not_ok_when_inheriting_from_stage_with_yarn_install_wo_yarn_clean() {
-        let d = ["FROM node:lts-alpine as foo", "RUN yarn install", "FROM foo", "RUN hey!", ""].join("\n");
+        let d = [
+            "FROM node:lts-alpine as foo",
+            "RUN yarn install",
+            "FROM foo",
+            "RUN hey!",
+            "",
+        ]
+        .join("\n");
         rule_catches("DL3060", &d);
         on_build_rule_catches("DL3060", &d);
     }
@@ -223,7 +270,14 @@ mod tests {
     }
     #[test]
     fn ok_when_omitting_yarn_cache_clean_in_stage_that_is_not_reused_later() {
-        let d = ["FROM node:lts-alpine as foo", "RUN yarn install foo", "FROM scratch", "RUN hey!", ""].join("\n");
+        let d = [
+            "FROM node:lts-alpine as foo",
+            "RUN yarn install foo",
+            "FROM scratch",
+            "RUN hey!",
+            "",
+        ]
+        .join("\n");
         rule_catches_not("DL3060", &d);
         on_build_rule_catches("DL3060", &d);
     }

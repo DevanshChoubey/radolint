@@ -4,9 +4,8 @@
 //! Parsers are `fn(&mut Parser) -> PResult<T>`; `?esc` is `p.esc`. See `combinator.rs`.
 
 #![allow(unused_variables)]
-use dlint_syntax::*;
 use crate::combinator::{PResult, Parser};
-
+use dlint_syntax::*;
 
 use crate::prelude::*;
 

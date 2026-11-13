@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3016.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::*;
 
@@ -17,9 +17,10 @@ fn dl3016() -> Box<dyn Rule> {
     let message = "Pin versions in npm. Instead of `npm install <package>` use `npm install <package>@<version>`";
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => {
-            fold_arguments(|a: &ParsedShell| shell::no_commands(forgot_to_pin_version, a), args)
-        }
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a: &ParsedShell| shell::no_commands(forgot_to_pin_version, a),
+            args,
+        ),
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -39,7 +40,10 @@ fn install_is_first(cmd: &shell::Command) -> bool {
 }
 
 fn packages(cmd: &shell::Command) -> Vec<String> {
-    strip_install_prefix(&shell::get_args_no_flags(&shell::drop_flag_arg(&IGNORE_FLAGS, cmd)))
+    strip_install_prefix(&shell::get_args_no_flags(&shell::drop_flag_arg(
+        &IGNORE_FLAGS,
+        cmd,
+    )))
 }
 
 fn version_fixed(package: &str) -> bool {
@@ -83,7 +87,11 @@ fn has_version_symbol(package: &str) -> bool {
 }
 
 fn strip_install_prefix(cmd: &[String]) -> Vec<String> {
-    let rest: Vec<String> = cmd.iter().skip_while(|s| *s != "install").cloned().collect();
+    let rest: Vec<String> = cmd
+        .iter()
+        .skip_while(|s| *s != "install")
+        .cloned()
+        .collect();
     rest.into_iter().skip_while(|s| s == "install").collect()
 }
 
@@ -116,8 +124,14 @@ mod tests {
 
     #[test]
     fn version_pinned_with_scope() {
-        rule_catches_not("DL3016", "RUN npm install @myorg/privatepackage@\">=0.1.0\"");
-        on_build_rule_catches_not("DL3016", "RUN npm install @myorg/privatepackage@\">=0.1.0\"");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install @myorg/privatepackage@\">=0.1.0\"",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install @myorg/privatepackage@\">=0.1.0\"",
+        );
     }
 
     #[test]
@@ -182,26 +196,50 @@ mod tests {
 
     #[test]
     fn commit_pinned_for_git_ssh() {
-        rule_catches_not("DL3016", "RUN npm install git+ssh://git@github.com:npm/npm.git#v1.0.27");
-        on_build_rule_catches_not("DL3016", "RUN npm install git+ssh://git@github.com:npm/npm.git#v1.0.27");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install git+ssh://git@github.com:npm/npm.git#v1.0.27",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install git+ssh://git@github.com:npm/npm.git#v1.0.27",
+        );
     }
 
     #[test]
     fn commit_pinned_for_git_http() {
-        rule_catches_not("DL3016", "RUN npm install git+http://isaacs@github.com/npm/npm#semver:^5.0");
-        on_build_rule_catches_not("DL3016", "RUN npm install git+http://isaacs@github.com/npm/npm#semver:^5.0");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install git+http://isaacs@github.com/npm/npm#semver:^5.0",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install git+http://isaacs@github.com/npm/npm#semver:^5.0",
+        );
     }
 
     #[test]
     fn commit_pinned_for_git_https() {
-        rule_catches_not("DL3016", "RUN npm install git+https://isaacs@github.com/npm/npm.git#v1.0.27");
-        on_build_rule_catches_not("DL3016", "RUN npm install git+https://isaacs@github.com/npm/npm.git#v1.0.27");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install git+https://isaacs@github.com/npm/npm.git#v1.0.27",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install git+https://isaacs@github.com/npm/npm.git#v1.0.27",
+        );
     }
 
     #[test]
     fn commit_pinned_for_git() {
-        rule_catches_not("DL3016", "RUN npm install git://github.com/npm/npm.git#v1.0.27");
-        on_build_rule_catches_not("DL3016", "RUN npm install git://github.com/npm/npm.git#v1.0.27");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install git://github.com/npm/npm.git#v1.0.27",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install git://github.com/npm/npm.git#v1.0.27",
+        );
     }
 
     #[test]
@@ -212,8 +250,14 @@ mod tests {
 
     #[test]
     fn version_pinned_with_scope_2() {
-        rule_catches_not("DL3016", "RUN npm install @myorg/privatepackage@\">=0.1.0 <0.2.0\"");
-        on_build_rule_catches_not("DL3016", "RUN npm install @myorg/privatepackage@\">=0.1.0 <0.2.0\"");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install @myorg/privatepackage@\">=0.1.0 <0.2.0\"",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install @myorg/privatepackage@\">=0.1.0 <0.2.0\"",
+        );
     }
 
     #[test]
@@ -242,20 +286,38 @@ mod tests {
 
     #[test]
     fn commit_not_pinned_for_git_ssh() {
-        rule_catches("DL3016", "RUN npm install git+ssh://git@github.com:npm/npm.git");
-        on_build_rule_catches("DL3016", "RUN npm install git+ssh://git@github.com:npm/npm.git");
+        rule_catches(
+            "DL3016",
+            "RUN npm install git+ssh://git@github.com:npm/npm.git",
+        );
+        on_build_rule_catches(
+            "DL3016",
+            "RUN npm install git+ssh://git@github.com:npm/npm.git",
+        );
     }
 
     #[test]
     fn commit_not_pinned_for_git_http() {
-        rule_catches("DL3016", "RUN npm install git+http://isaacs@github.com/npm/npm");
-        on_build_rule_catches("DL3016", "RUN npm install git+http://isaacs@github.com/npm/npm");
+        rule_catches(
+            "DL3016",
+            "RUN npm install git+http://isaacs@github.com/npm/npm",
+        );
+        on_build_rule_catches(
+            "DL3016",
+            "RUN npm install git+http://isaacs@github.com/npm/npm",
+        );
     }
 
     #[test]
     fn commit_not_pinned_for_git_https() {
-        rule_catches("DL3016", "RUN npm install git+https://isaacs@github.com/npm/npm.git");
-        on_build_rule_catches("DL3016", "RUN npm install git+https://isaacs@github.com/npm/npm.git");
+        rule_catches(
+            "DL3016",
+            "RUN npm install git+https://isaacs@github.com/npm/npm.git",
+        );
+        on_build_rule_catches(
+            "DL3016",
+            "RUN npm install git+https://isaacs@github.com/npm/npm.git",
+        );
     }
 
     #[test]
@@ -272,19 +334,37 @@ mod tests {
 
     #[test]
     fn don_t_fire_on_registry_flag() {
-        rule_catches_not("DL3016", "RUN npm install --registry https://example.com sax@0.1.1");
-        on_build_rule_catches_not("DL3016", "RUN npm install --registry https://example.com sax@0.1.1");
+        rule_catches_not(
+            "DL3016",
+            "RUN npm install --registry https://example.com sax@0.1.1",
+        );
+        on_build_rule_catches_not(
+            "DL3016",
+            "RUN npm install --registry https://example.com sax@0.1.1",
+        );
     }
 
     #[test]
     fn version_not_pinned_with_registry_flag() {
-        rule_catches("DL3016", "RUN npm install --registry https://example.com express");
-        on_build_rule_catches("DL3016", "RUN npm install --registry https://example.com express");
+        rule_catches(
+            "DL3016",
+            "RUN npm install --registry https://example.com express",
+        );
+        on_build_rule_catches(
+            "DL3016",
+            "RUN npm install --registry https://example.com express",
+        );
     }
 
     #[test]
     fn version_not_pinned_with_registry_value_form() {
-        rule_catches("DL3016", "RUN npm install --registry=https://example.com express");
-        on_build_rule_catches("DL3016", "RUN npm install --registry=https://example.com express");
+        rule_catches(
+            "DL3016",
+            "RUN npm install --registry=https://example.com express",
+        );
+        on_build_rule_catches(
+            "DL3016",
+            "RUN npm install --registry=https://example.com express",
+        );
     }
 }

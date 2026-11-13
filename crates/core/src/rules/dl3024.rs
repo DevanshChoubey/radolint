@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3024.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, modify, CheckFailure, DLSeverity, Rule, RuleCode,
+    CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, modify,
 };
 use dlint_syntax::{ImageAlias, Instruction};
 use std::collections::BTreeSet;
@@ -15,7 +15,9 @@ pub fn rule() -> Box<dyn Rule> {
     custom_rule(
         move |line, st, instr| match instr {
             Instruction::From(base) => match &base.alias {
-                Some(ImageAlias { un_image_alias: als }) => {
+                Some(ImageAlias {
+                    un_image_alias: als,
+                }) => {
                     if st.state.contains(als) {
                         add_fail(
                             CheckFailure {

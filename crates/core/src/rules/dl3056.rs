@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3056.hs.
 
-use crate::rule::{mconcat, simple_rule, DLSeverity, LabelName, LabelSchema, LabelType, Rule};
+use crate::rule::{DLSeverity, LabelName, LabelSchema, LabelType, Rule, mconcat, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -50,19 +50,19 @@ fn sem_ver_from_text(t: &str) -> bool {
         Some((a, m)) => (a, Some(m)),
         None => (t, None),
     };
-    if let Some(m) = meta {
-        if !m.split('.').all(alnum) {
-            return false;
-        }
+    if let Some(m) = meta
+        && !m.split('.').all(alnum)
+    {
+        return false;
     }
     let (core, pre) = match rest.split_once('-') {
         Some((c, p)) => (c, Some(p)),
         None => (rest, None),
     };
-    if let Some(p) = pre {
-        if !p.split('.').all(release_id) {
-            return false;
-        }
+    if let Some(p) = pre
+        && !p.split('.').all(release_id)
+    {
+        return false;
     }
     let parts: Vec<&str> = core.split('.').collect();
     parts.len() == 3 && parts.iter().all(|p| numeric(p))
@@ -75,9 +75,12 @@ mod tests {
     use crate::testing::*;
 
     fn config() -> Configuration {
-        let mut c = Configuration::default();
-        c.label_schema = [("semver".to_string(), LabelType::SemVer)].into_iter().collect();
-        c
+        Configuration {
+            label_schema: [("semver".to_string(), LabelType::SemVer)]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        }
     }
 
     #[test]

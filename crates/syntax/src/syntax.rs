@@ -439,7 +439,10 @@ pub struct TmpOpts {
 
 impl Default for TmpOpts {
     fn default() -> Self {
-        TmpOpts { t_target: TargetPath::from(""), t_size: None }
+        TmpOpts {
+            t_target: TargetPath::from(""),
+            t_size: None,
+        }
     }
 }
 
@@ -642,32 +645,54 @@ impl From<&str> for Image {
                     image_name: parts[1..].join("/"),
                 }
             } else {
-                Image { registry_name: None, image_name: img.to_string() }
+                Image {
+                    registry_name: None,
+                    image_name: img.to_string(),
+                }
             }
         } else {
-            Image { registry_name: None, image_name: img.to_string() }
+            Image {
+                registry_name: None,
+                image_name: img.to_string(),
+            }
         }
     }
 }
 
 impl From<&str> for Checksum {
     fn from(s: &str) -> Self {
-        if s.is_empty() { Checksum::NoChecksum } else { Checksum::Checksum(s.to_string()) }
+        if s.is_empty() {
+            Checksum::NoChecksum
+        } else {
+            Checksum::Checksum(s.to_string())
+        }
     }
 }
 impl From<&str> for Chown {
     fn from(s: &str) -> Self {
-        if s.is_empty() { Chown::NoChown } else { Chown::Chown(s.to_string()) }
+        if s.is_empty() {
+            Chown::NoChown
+        } else {
+            Chown::Chown(s.to_string())
+        }
     }
 }
 impl From<&str> for Chmod {
     fn from(s: &str) -> Self {
-        if s.is_empty() { Chmod::NoChmod } else { Chmod::Chmod(s.to_string()) }
+        if s.is_empty() {
+            Chmod::NoChmod
+        } else {
+            Chmod::Chmod(s.to_string())
+        }
     }
 }
 impl From<&str> for CopySource {
     fn from(s: &str) -> Self {
-        if s.is_empty() { CopySource::NoSource } else { CopySource::CopySource(s.to_string()) }
+        if s.is_empty() {
+            CopySource::NoSource
+        } else {
+            CopySource::CopySource(s.to_string())
+        }
     }
 }
 
@@ -703,7 +728,9 @@ impl Arguments<String> {
 impl Duration {
     /// Haskell `Num Duration` `fromInteger` (whole seconds).
     pub fn from_seconds(s: i128) -> Self {
-        Duration { duration_time: DiffTime::from_seconds(s) }
+        Duration {
+            duration_time: DiffTime::from_seconds(s),
+        }
     }
 }
 
@@ -715,8 +742,17 @@ mod tests {
     fn image_from_string() {
         assert_eq!(
             Image::from("foo.com/bar/baz"),
-            Image { registry_name: Some(Registry::from("foo.com")), image_name: "bar/baz".into() }
+            Image {
+                registry_name: Some(Registry::from("foo.com")),
+                image_name: "bar/baz".into()
+            }
         );
-        assert_eq!(Image::from("a/b"), Image { registry_name: None, image_name: "a/b".into() });
+        assert_eq!(
+            Image::from("a/b"),
+            Image {
+                registry_name: None,
+                image_name: "a/b".into()
+            }
+        );
     }
 }

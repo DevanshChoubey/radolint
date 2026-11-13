@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3026.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, modify, CheckFailure, DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
 use dlint_syntax::*;
 use std::collections::BTreeSet;
@@ -16,7 +16,11 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
 
     let is_registry_allowed = {
         let allowed = allowed.clone();
-        move |registry: &str| allowed.iter().any(|p| match_registry(&p.un_registry, registry))
+        move |registry: &str| {
+            allowed
+                .iter()
+                .any(|p| match_registry(&p.un_registry, registry))
+        }
     };
 
     let is_allowed = {
@@ -31,7 +35,11 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
         }
     };
 
-    let to_image_alias = |img: &Image| Some(ImageAlias { un_image_alias: img.image_name.clone() });
+    let to_image_alias = |img: &Image| {
+        Some(ImageAlias {
+            un_image_alias: img.image_name.clone(),
+        })
+    };
 
     let do_check = {
         let allowed = allowed.clone();
@@ -44,11 +52,17 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
         let do_check = do_check.clone();
         move |st: &BTreeSet<Option<ImageAlias>>, m: &RunMount| match m {
             RunMount::CacheMount(c) => {
-                let fi = c.c_from_image.clone().unwrap_or_else(|| "scratch".to_string());
+                let fi = c
+                    .c_from_image
+                    .clone()
+                    .unwrap_or_else(|| "scratch".to_string());
                 do_check(st, &Image::from(fi.as_str()))
             }
             RunMount::BindMount(b) => {
-                let fi = b.b_from_image.clone().unwrap_or_else(|| "scratch".to_string());
+                let fi = b
+                    .b_from_image
+                    .clone()
+                    .unwrap_or_else(|| "scratch".to_string());
                 do_check(st, &Image::from(fi.as_str()))
             }
             _ => true,
@@ -81,7 +95,13 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
                     add_fail(fail(line), new_state)
                 }
             }
-            Instruction::Copy(_, CopyFlags { source_flag: CopySource::CopySource(src), .. }) => {
+            Instruction::Copy(
+                _,
+                CopyFlags {
+                    source_flag: CopySource::CopySource(src),
+                    ..
+                },
+            ) => {
                 let img = Image::from(src.as_str());
                 if do_check(&st.state, &img) {
                     st
@@ -90,7 +110,7 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
                 }
             }
             Instruction::Run(RunArgs(_, RunFlags { mount: m, .. })) => {
-                if m.iter().filter(|x| !check_mount(&st.state, x)).next().is_none() {
+                if m.iter().find(|x| !check_mount(&st.state, x)).is_none() {
                     st
                 } else {
                     add_fail(fail(line), st)
@@ -124,9 +144,10 @@ mod tests {
     use crate::testing::*;
 
     fn cfg(regs: &[&str]) -> Configuration {
-        let mut c = Configuration::default();
-        c.allowed_registries = regs.iter().map(|r| Registry::from(*r)).collect();
-        c
+        Configuration {
+            allowed_registries: regs.iter().map(|r| Registry::from(*r)).collect(),
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -141,7 +162,11 @@ mod tests {
 
     #[test]
     fn does_not_warn_on_allowed_registries() {
-        rule_catches_not_with(&cfg(&["x.com", "random.com"]), "DL3026", "FROM random.com/debian\n");
+        rule_catches_not_with(
+            &cfg(&["x.com", "random.com"]),
+            "DL3026",
+            "FROM random.com/debian\n",
+        );
     }
 
     #[test]

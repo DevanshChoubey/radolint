@@ -5,7 +5,10 @@ use dlint_syntax::{RunFlags, RunMount};
 
 /// Haskell `hasCacheOrTmpfsMountWith`.
 pub fn has_cache_or_tmpfs_mount_with(frag: &str, flags: &RunFlags) -> bool {
-    flags.mount.iter().any(|m| is_cache_or_tmpfs_mount_with(frag, m))
+    flags
+        .mount
+        .iter()
+        .any(|m| is_cache_or_tmpfs_mount_with(frag, m))
 }
 
 fn is_cache_or_tmpfs_mount_with(frag: &str, m: &RunMount) -> bool {

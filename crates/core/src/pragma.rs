@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Pragma.hs.
 
 use crate::rule::RuleCode;
-use dlint_parser::combinator::{run_parser, PResult, Parser};
+use dlint_parser::combinator::{PResult, Parser, run_parser};
 use dlint_syntax::{Instruction, InstructionPos};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -17,12 +17,11 @@ fn codes(ignores: Vec<String>) -> BTreeSet<RuleCode> {
 pub fn ignored(dockerfile: &[InstructionPos<String>]) -> IgnoreMap {
     let mut acc = IgnoreMap::new();
     for ip in dockerfile {
-        if let Instruction::Comment(comment) = &ip.instruction {
-            if let Some(ignores) = parse_ignore_pragma(comment) {
-                if !ignores.is_empty() {
-                    acc.insert(ip.line_number + 1, codes(ignores));
-                }
-            }
+        if let Instruction::Comment(comment) = &ip.instruction
+            && let Some(ignores) = parse_ignore_pragma(comment)
+            && !ignores.is_empty()
+        {
+            acc.insert(ip.line_number + 1, codes(ignores));
         }
     }
     acc
@@ -34,10 +33,10 @@ pub fn stage_ignored(dockerfile: &[InstructionPos<String>]) -> IgnoreMap {
     for ip in dockerfile {
         match &ip.instruction {
             Instruction::Comment(comment) => {
-                if let Some(ignores) = parse_stage_ignore_pragma(comment) {
-                    if !ignores.is_empty() {
-                        acc.insert(ip.line_number + 1, codes(ignores));
-                    }
+                if let Some(ignores) = parse_stage_ignore_pragma(comment)
+                    && !ignores.is_empty()
+                {
+                    acc.insert(ip.line_number + 1, codes(ignores));
                 }
             }
             Instruction::From(_) => {
@@ -53,12 +52,11 @@ pub fn stage_ignored(dockerfile: &[InstructionPos<String>]) -> IgnoreMap {
 pub fn global_ignored(dockerfile: &[InstructionPos<String>]) -> BTreeSet<RuleCode> {
     let mut acc = BTreeSet::new();
     for ip in dockerfile {
-        if let Instruction::Comment(comment) = &ip.instruction {
-            if let Some(ignores) = parse_global_ignore_pragma(comment) {
-                if !ignores.is_empty() {
-                    acc.extend(codes(ignores));
-                }
-            }
+        if let Instruction::Comment(comment) = &ip.instruction
+            && let Some(ignores) = parse_global_ignore_pragma(comment)
+            && !ignores.is_empty()
+        {
+            acc.extend(codes(ignores));
         }
     }
     acc
@@ -182,10 +180,22 @@ mod tests {
 
     #[test]
     fn ignore_pragma() {
-        assert_eq!(parse_ignore_pragma(" hadolint ignore=DL3000,DL3001"), Some(vec!["DL3000".into(), "DL3001".into()]));
-        assert_eq!(parse_ignore_pragma("hadolint ignore=DL3000 # why"), Some(vec!["DL3000".into()]));
+        assert_eq!(
+            parse_ignore_pragma(" hadolint ignore=DL3000,DL3001"),
+            Some(vec!["DL3000".into(), "DL3001".into()])
+        );
+        assert_eq!(
+            parse_ignore_pragma("hadolint ignore=DL3000 # why"),
+            Some(vec!["DL3000".into()])
+        );
         assert_eq!(parse_ignore_pragma("hadolint ignore=nope"), None);
-        assert_eq!(parse_global_ignore_pragma("hadolint global ignore=DL3000"), Some(vec!["DL3000".into()]));
-        assert_eq!(parse_shell("hadolint shell=powershell"), Some("powershell".into()));
+        assert_eq!(
+            parse_global_ignore_pragma("hadolint global ignore=DL3000"),
+            Some(vec!["DL3000".into()])
+        );
+        assert_eq!(
+            parse_shell("hadolint shell=powershell"),
+            Some("powershell".into())
+        );
     }
 }

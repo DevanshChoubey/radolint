@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3015.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -18,15 +18,17 @@ fn dl3015() -> Box<dyn Rule> {
 
     let is_apt_get_install = |cmd: &Command| shell::cmd_has_args("apt-get", &["install"], cmd);
     let disables_recommend_option = |cmd: &Command| {
-        shell::has_flag("no-install-recommends", cmd) || shell::has_arg("APT::Install-Recommends=false", cmd)
+        shell::has_flag("no-install-recommends", cmd)
+            || shell::has_arg("APT::Install-Recommends=false", cmd)
     };
     let forgot_no_install_recommends =
         move |cmd: &Command| is_apt_get_install(cmd) && !disables_recommend_option(cmd);
 
     let check = move |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => {
-            fold_arguments(|a| shell::no_commands(&forgot_no_install_recommends, a), args)
-        }
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a| shell::no_commands(forgot_no_install_recommends, a),
+            args,
+        ),
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -38,8 +40,14 @@ mod tests {
 
     #[test]
     fn apt_get_install_recommends() {
-        rule_catches_not("DL3015", "RUN apt-get install --no-install-recommends python");
-        on_build_rule_catches_not("DL3015", "RUN apt-get install --no-install-recommends python");
+        rule_catches_not(
+            "DL3015",
+            "RUN apt-get install --no-install-recommends python",
+        );
+        on_build_rule_catches_not(
+            "DL3015",
+            "RUN apt-get install --no-install-recommends python",
+        );
     }
 
     #[test]
@@ -56,7 +64,13 @@ mod tests {
 
     #[test]
     fn apt_get_no_install_recommends_via_option() {
-        rule_catches_not("DL3015", "RUN apt-get -o APT::Install-Recommends=false install python");
-        on_build_rule_catches_not("DL3015", "RUN apt-get -o APT::Install-Recommends=false install python");
+        rule_catches_not(
+            "DL3015",
+            "RUN apt-get -o APT::Install-Recommends=false install python",
+        );
+        on_build_rule_catches_not(
+            "DL3015",
+            "RUN apt-get -o APT::Install-Recommends=false install python",
+        );
     }
 }

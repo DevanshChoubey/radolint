@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3028.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -17,7 +17,10 @@ fn dl3028() -> Box<dyn Rule> {
     let message = "Pin versions in gem install. Instead of `gem install <gem>` use `gem install <gem>:<version>`";
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => fold_arguments(|a: &ParsedShell| gems(a).iter().all(|p| version_fixed(p)), args),
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a: &ParsedShell| gems(a).iter().all(|p| version_fixed(p)),
+            args,
+        ),
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -37,7 +40,8 @@ fn gems(shell: &ParsedShell) -> Vec<String> {
             && !shell::cmd_has_prefix_arg("gem", "--version=", cmd)
         {
             let args = shell::get_args(cmd);
-            let args_until_double_dash: Vec<String> = args.into_iter().take_while(|a| a != "--").collect();
+            let args_until_double_dash: Vec<String> =
+                args.into_iter().take_while(|a| a != "--").collect();
             for arg in remove_options(&args_until_double_dash) {
                 if arg != "install" && arg != "i" {
                     out.push(arg);

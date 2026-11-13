@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3023.hs.
 
 use crate::rule::{
-    add_fail, alias_must_be, custom_rule, empty_state, pipe, replace_with, CheckFailure,
-    DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, alias_must_be, custom_rule,
+    empty_state, pipe, replace_with,
 };
 use crate::shell::ParsedShell;
 use dlint_syntax::{CopySource, Instruction, Linenumber};

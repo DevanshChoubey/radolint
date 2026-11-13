@@ -9,14 +9,16 @@
 //! with the forced `--error RULE` configuration against `oracle_forced.json`.
 //! Panics (e.g. `todo!()` stubs) are caught per case and counted as failures.
 
-use dlint_core::config::configuration::{apply_partial_configuration, partial_from_yaml, Configuration};
-use dlint_core::formatter::format::{to_result, FormatResult};
+use dlint_core::config::configuration::{
+    Configuration, apply_partial_configuration, partial_from_yaml,
+};
+use dlint_core::formatter::format::{FormatResult, to_result};
 use dlint_core::formatter::{json, tty};
 use dlint_core::lint;
-use dlint_core::rule::{read_either_label_type, RuleCode};
+use dlint_core::rule::{RuleCode, read_either_label_type};
 use dlint_syntax::Registry;
 use serde_json::Value;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 struct Opts {
     verbose: bool,
@@ -25,7 +27,11 @@ struct Opts {
 }
 
 fn parse_opts() -> Opts {
-    let mut o = Opts { verbose: false, filter: None, corpus: "conformance/corpus.jsonl".to_string() };
+    let mut o = Opts {
+        verbose: false,
+        filter: None,
+        corpus: "conformance/corpus.jsonl".to_string(),
+    };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -46,7 +52,11 @@ fn parse_opts() -> Opts {
 }
 
 /// Build the `Configuration` equivalent to the CLI args recorded in the corpus.
-fn config_from(args: &[String], extra_error: &[String], config_yaml: Option<&str>) -> Result<Configuration, String> {
+fn config_from(
+    args: &[String],
+    extra_error: &[String],
+    config_yaml: Option<&str>,
+) -> Result<Configuration, String> {
     let mut config = Configuration::default();
     if let Some(y) = config_yaml {
         config = apply_partial_configuration(config, partial_from_yaml(y)?);
@@ -61,14 +71,28 @@ fn config_from(args: &[String], extra_error: &[String], config_yaml: Option<&str
             }
             "--require-label" => {
                 let v = it.next().ok_or("--require-label needs a value")?;
-                let (name, ty) = v.split_once(':').ok_or_else(|| format!("bad label schema {v}"))?;
-                config.label_schema.insert(name.to_string(), read_either_label_type(ty)?);
+                let (name, ty) = v
+                    .split_once(':')
+                    .ok_or_else(|| format!("bad label schema {v}"))?;
+                config
+                    .label_schema
+                    .insert(name.to_string(), read_either_label_type(ty)?);
             }
-            "--error" => config.error_rules.push(RuleCode::from(it.next().ok_or("--error needs a value")?.as_str())),
-            "--warning" => config.warning_rules.push(RuleCode::from(it.next().ok_or("--warning needs a value")?.as_str())),
-            "--info" => config.info_rules.push(RuleCode::from(it.next().ok_or("--info needs a value")?.as_str())),
-            "--style" => config.style_rules.push(RuleCode::from(it.next().ok_or("--style needs a value")?.as_str())),
-            "--ignore" => config.ignore_rules.push(RuleCode::from(it.next().ok_or("--ignore needs a value")?.as_str())),
+            "--error" => config.error_rules.push(RuleCode::from(
+                it.next().ok_or("--error needs a value")?.as_str(),
+            )),
+            "--warning" => config.warning_rules.push(RuleCode::from(
+                it.next().ok_or("--warning needs a value")?.as_str(),
+            )),
+            "--info" => config.info_rules.push(RuleCode::from(
+                it.next().ok_or("--info needs a value")?.as_str(),
+            )),
+            "--style" => config.style_rules.push(RuleCode::from(
+                it.next().ok_or("--style needs a value")?.as_str(),
+            )),
+            "--ignore" => config.ignore_rules.push(RuleCode::from(
+                it.next().ok_or("--ignore needs a value")?.as_str(),
+            )),
             other => return Err(format!("unsupported corpus arg {other}")),
         }
     }
@@ -126,17 +150,30 @@ fn check(rec: &Value) -> Outcome {
     } else {
         rec["dockerfile"].as_str().unwrap_or("").as_bytes().to_vec()
     };
-    let args: Vec<String> = rec["args"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    let args: Vec<String> = rec["args"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     let yaml = rec["config_yaml"].as_str();
     let mut ok = true;
     let mut detail = String::new();
 
     let config = match config_from(&args, &[], yaml) {
         Ok(c) => c,
-        Err(e) => return Outcome { ok: false, detail: format!("config error: {e}") },
+        Err(e) => {
+            return Outcome {
+                ok: false,
+                detail: format!("config error: {e}"),
+            };
+        }
     };
     let res = run_case(&src, &config);
-    let got_json: Value = serde_json::from_str(&json::render(std::slice::from_ref(&res))).unwrap_or(Value::Null);
+    let got_json: Value =
+        serde_json::from_str(&json::render(std::slice::from_ref(&res))).unwrap_or(Value::Null);
     let want_json = &rec["oracle"]["json"];
     if &got_json != want_json {
         ok = false;
@@ -150,11 +187,27 @@ fn check(rec: &Value) -> Outcome {
         }
     }
     if let Some(forced) = rec.get("oracle_forced").filter(|v| v.is_object()) {
-        let fargs: Vec<String> = forced["args"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
-        match config_from(&args, &fargs.iter().filter(|a| !a.starts_with("--")).cloned().collect::<Vec<_>>(), yaml) {
+        let fargs: Vec<String> = forced["args"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        match config_from(
+            &args,
+            &fargs
+                .iter()
+                .filter(|a| !a.starts_with("--"))
+                .cloned()
+                .collect::<Vec<_>>(),
+            yaml,
+        ) {
             Ok(c) => {
                 let r = run_case(&src, &c);
-                let g: Value = serde_json::from_str(&json::render(std::slice::from_ref(&r))).unwrap_or(Value::Null);
+                let g: Value = serde_json::from_str(&json::render(std::slice::from_ref(&r)))
+                    .unwrap_or(Value::Null);
                 if g != forced["json"] {
                     ok = false;
                     detail += &format!("forced json:\n  want {}\n  got  {g}\n", forced["json"]);
@@ -190,10 +243,10 @@ fn main() {
             }
         };
         let id = rec["id"].as_str().unwrap_or("?").to_string();
-        if let Some(f) = &opts.filter {
-            if !id.contains(f.as_str()) {
-                continue;
-            }
+        if let Some(f) = &opts.filter
+            && !id.contains(f.as_str())
+        {
+            continue;
         }
         let outcome = match catch_unwind(AssertUnwindSafe(|| check(&rec))) {
             Ok(o) => o,
@@ -203,7 +256,10 @@ fn main() {
                     .cloned()
                     .or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string()))
                     .unwrap_or_else(|| "panic".to_string());
-                Outcome { ok: false, detail: format!("panic: {msg}\n") }
+                Outcome {
+                    ok: false,
+                    detail: format!("panic: {msg}\n"),
+                }
             }
         };
         if outcome.ok {

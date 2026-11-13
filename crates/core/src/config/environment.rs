@@ -2,10 +2,10 @@
 //! Port of upstream/hadolint/src/Hadolint/Config/Environment.hs.
 
 use crate::config::configuration::PartialConfiguration;
-use crate::formatter::format::{read_maybe_output_format, OutputFormat};
+use crate::formatter::format::{OutputFormat, read_maybe_output_format};
 use crate::rule::{
-    read_either_label_type, read_maybe_severity, DLSeverity, LabelName, LabelSchema, LabelType,
-    RuleCode,
+    DLSeverity, LabelName, LabelSchema, LabelType, RuleCode, read_either_label_type,
+    read_maybe_severity,
 };
 use dlint_syntax::Registry;
 use std::collections::BTreeSet;
@@ -37,10 +37,7 @@ pub fn get_config_from_environment() -> PartialConfiguration {
 
 /// Haskell `isSet`.
 pub fn is_set(name: &str) -> Option<bool> {
-    match lookup_env(name) {
-        Some(_) => Some(true),
-        None => None,
-    }
+    lookup_env(name).map(|_| true)
 }
 /// Haskell `maybeTruthy`.
 pub fn maybe_truthy(name: &str) -> Option<bool> {
@@ -189,28 +186,52 @@ mod tests {
     #[test]
     fn parse_hadolint_nofail_1() {
         with_just_env("HADOLINT_NOFAIL", "1", |c| {
-            assert_eq!(c, PartialConfiguration { partial_no_fail: Some(true), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_fail: Some(true),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_hadolint_nofail_0() {
         with_just_env("HADOLINT_NOFAIL", "0", |c| {
-            assert_eq!(c, PartialConfiguration { partial_no_fail: Some(false), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_fail: Some(false),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_no_color_y() {
         with_just_env("NO_COLOR", "y", |c| {
-            assert_eq!(c, PartialConfiguration { partial_no_color: Some(true), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_color: Some(true),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_no_color_n() {
         with_just_env("NO_COLOR", "n", |c| {
-            assert_eq!(c, PartialConfiguration { partial_no_color: Some(true), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_color: Some(true),
+                    ..Default::default()
+                }
+            )
         });
     }
 
@@ -218,34 +239,64 @@ mod tests {
     fn parse_no_color_set_to_empty_string() {
         // POSIX: set-but-empty counts as set (expectedValueVarEmptyString = Just True).
         with_just_env("NO_COLOR", "", |c| {
-            assert_eq!(c, PartialConfiguration { partial_no_color: Some(true), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_color: Some(true),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_no_color_unset() {
         without_all(|c| {
-            assert_eq!(c, PartialConfiguration { partial_no_color: None, ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_no_color: None,
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_hadolint_verbose_on() {
         with_just_env("HADOLINT_VERBOSE", "on", |c| {
-            assert_eq!(c, PartialConfiguration { partial_verbose: Some(true), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_verbose: Some(true),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     #[test]
     fn parse_hadolint_verbose_off() {
         with_just_env("HADOLINT_VERBOSE", "off", |c| {
-            assert_eq!(c, PartialConfiguration { partial_verbose: Some(false), ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_verbose: Some(false),
+                    ..Default::default()
+                }
+            )
         });
     }
 
     fn fmt_case(v: &str, want: Vec<OutputFormat>) {
         with_just_env("HADOLINT_FORMAT", v, |c| {
-            assert_eq!(c, PartialConfiguration { partial_formats: want, ..Default::default() })
+            assert_eq!(
+                c,
+                PartialConfiguration {
+                    partial_formats: want,
+                    ..Default::default()
+                }
+            )
         });
     }
 
@@ -349,17 +400,25 @@ mod tests {
 
     #[test]
     fn parse_trusted_registries_two() {
-        with_just_env("HADOLINT_TRUSTED_REGISTRIES", "foobar.com,barfoo.com", |c| {
-            let want: BTreeSet<Registry> =
-                [Registry::from("foobar.com"), Registry::from("barfoo.com")].into_iter().collect();
-            assert_eq!(c.partial_allowed_registries, want);
-        });
+        with_just_env(
+            "HADOLINT_TRUSTED_REGISTRIES",
+            "foobar.com,barfoo.com",
+            |c| {
+                let want: BTreeSet<Registry> =
+                    [Registry::from("foobar.com"), Registry::from("barfoo.com")]
+                        .into_iter()
+                        .collect();
+                assert_eq!(c.partial_allowed_registries, want);
+            },
+        );
     }
 
     #[test]
     fn parse_require_labels_one() {
         with_just_env("HADOLINT_REQUIRE_LABELS", "foo:email", |c| {
-            let want: LabelSchema = [("foo".to_string(), LabelType::Email)].into_iter().collect();
+            let want: LabelSchema = [("foo".to_string(), LabelType::Email)]
+                .into_iter()
+                .collect();
             assert_eq!(c.partial_label_schema, want);
         });
     }
@@ -367,10 +426,12 @@ mod tests {
     #[test]
     fn parse_require_labels_two() {
         with_just_env("HADOLINT_REQUIRE_LABELS", "foo:email,bar:text", |c| {
-            let want: LabelSchema =
-                [("foo".to_string(), LabelType::Email), ("bar".to_string(), LabelType::RawText)]
-                    .into_iter()
-                    .collect();
+            let want: LabelSchema = [
+                ("foo".to_string(), LabelType::Email),
+                ("bar".to_string(), LabelType::RawText),
+            ]
+            .into_iter()
+            .collect();
             assert_eq!(c.partial_label_schema, want);
         });
     }

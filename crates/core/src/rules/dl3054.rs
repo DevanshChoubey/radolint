@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3054.hs.
 
 use crate::rule::LabelSchema;
-use crate::rule::{mconcat, simple_rule, DLSeverity, LabelName, LabelType, Rule};
+use crate::rule::{DLSeverity, LabelName, LabelType, Rule, mconcat, simple_rule};
 use dlint_syntax::{Instruction, Pairs};
 
 /// Haskell `rule`.
@@ -754,9 +754,12 @@ mod tests {
     use crate::testing::*;
 
     fn config() -> Configuration {
-        let mut c = Configuration::default();
-        c.label_schema = [("spdxlabel".to_string(), LabelType::Spdx)].into_iter().collect();
-        c
+        Configuration {
+            label_schema: [("spdxlabel".to_string(), LabelType::Spdx)]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        }
     }
 
     #[test]

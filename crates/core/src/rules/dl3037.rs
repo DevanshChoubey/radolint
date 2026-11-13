@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3037.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -17,9 +17,10 @@ fn dl3037() -> Box<dyn Rule> {
     let message = "Specify version with `zypper install -y <package>=<version>`.";
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => {
-            fold_arguments(|a| zypper_packages(a).iter().all(|p| version_fixed(p)), args)
-        }
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a| zypper_packages(a).iter().all(|p| version_fixed(p)),
+            args,
+        ),
         _ => true,
     };
 

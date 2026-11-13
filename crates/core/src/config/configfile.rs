@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Config/Configfile.hs.
 
-use crate::config::configuration::{partial_from_yaml, PartialConfiguration};
+use crate::config::configuration::{PartialConfiguration, partial_from_yaml};
 use std::path::PathBuf;
 
 /// Haskell `getConfigFromFile`: explicit path, or the first existing of
@@ -114,8 +114,10 @@ pub fn find_config() -> std::io::Result<Option<String>> {
     let more_configs = ["config.yaml", "config.yml"];
     let cwd = std::env::current_dir()?;
     let files_in_cwd: Vec<PathBuf> = hidden_configs.iter().map(|f| cwd.join(f)).collect();
-    let files_in_xdg_config: Vec<PathBuf> =
-        visible_configs.iter().map(|f| xdg_config_dir().join(f)).collect();
+    let files_in_xdg_config: Vec<PathBuf> = visible_configs
+        .iter()
+        .map(|f| xdg_config_dir().join(f))
+        .collect();
     let app_data = home_dir().join(".hadolint");
     let files_in_app_data: Vec<PathBuf> = visible_configs
         .iter()
@@ -293,9 +295,14 @@ mod tests {
     #[test]
     fn parse_label_schema() {
         let mut m = mempty();
-        m.partial_label_schema.insert("foo".to_string(), LabelType::Email);
-        m.partial_label_schema.insert("bar".to_string(), LabelType::RawText);
-        assert_eq!(parse_yaml(&["label-schema:", "  foo: email", "  bar: text"]), Ok(m));
+        m.partial_label_schema
+            .insert("foo".to_string(), LabelType::Email);
+        m.partial_label_schema
+            .insert("bar".to_string(), LabelType::RawText);
+        assert_eq!(
+            parse_yaml(&["label-schema:", "  foo: email", "  bar: text"]),
+            Ok(m)
+        );
     }
 
     #[test]

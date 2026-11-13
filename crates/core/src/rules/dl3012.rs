@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3012.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, replace_with, CheckFailure, DLSeverity, Rule, RuleCode,
+    CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, replace_with,
 };
 use dlint_syntax::Instruction;
 
@@ -56,6 +56,9 @@ mod tests {
     }
     #[test]
     fn warn_with_two_healthcheck_instructions() {
-        rule_catches("DL3012", "FROM scratch\nHEALTHCHECK CMD /bin/bla1\nHEALTHCHECK CMD /bin/bla2");
+        rule_catches(
+            "DL3012",
+            "FROM scratch\nHEALTHCHECK CMD /bin/bla1\nHEALTHCHECK CMD /bin/bla2",
+        );
     }
 }

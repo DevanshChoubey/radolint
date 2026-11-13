@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3063.hs.
 
-use crate::rule::{simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -12,13 +12,9 @@ pub fn rule() -> Box<dyn Rule> {
 
     let check = |instr: &Instruction<_>| match instr {
         Instruction::From(base) => match &base.alias {
-            Some(ImageAlias { un_image_alias: als }) => {
-                if als == "scratch" || als == "context" {
-                    false
-                } else {
-                    true
-                }
-            }
+            Some(ImageAlias {
+                un_image_alias: als,
+            }) => !(als == "scratch" || als == "context"),
             _ => true,
         },
         _ => true,

@@ -80,11 +80,19 @@ pub struct FormatResult {
 /// Haskell `toResult`.
 pub fn to_result(file: &str, res: Result<Failures, ParseError>) -> FormatResult {
     match res {
-        Err(err) => FormatResult { file_name: file.to_string(), errors: vec![err], checks: vec![] },
+        Err(err) => FormatResult {
+            file_name: file.to_string(),
+            errors: vec![err],
+            checks: vec![],
+        },
         Ok(c) => {
             // Upstream `Seq.unstableSort`: equal-line order follows containers' finger-tree/pairing-heap shape.
             let c = crate::seq_sort::unstable_sort_by_line(c);
-            FormatResult { file_name: file.to_string(), errors: vec![], checks: c }
+            FormatResult {
+                file_name: file.to_string(),
+                errors: vec![],
+                checks: c,
+            }
         }
     }
 }

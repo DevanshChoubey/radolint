@@ -4,7 +4,7 @@
 
 use crate::config::configuration::PartialConfiguration;
 use crate::formatter::format::read_maybe_output_format;
-use crate::rule::{read_either_label_type, read_either_severity, RuleCode};
+use crate::rule::{RuleCode, read_either_label_type, read_either_severity};
 use dlint_syntax::Registry;
 
 /// Haskell `CommandlineConfig`.
@@ -115,7 +115,11 @@ pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
             () => {
                 match inline_val.clone().or_else(|| it.next().cloned()) {
                     Some(v) => v,
-                    None => return CommandlineOutcome::Error(format!("The option `{name}' expects an argument.")),
+                    None => {
+                        return CommandlineOutcome::Error(format!(
+                            "The option `{name}' expects an argument."
+                        ))
+                    }
                 }
             };
         }
@@ -133,7 +137,11 @@ pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
                 let v = value!();
                 match read_maybe_output_format(&v) {
                     Some(f) => p.partial_formats.push(f),
-                    None => return CommandlineOutcome::Error(format!("option {name}: cannot parse value `{v}'")),
+                    None => {
+                        return CommandlineOutcome::Error(format!(
+                            "option {name}: cannot parse value `{v}'"
+                        ));
+                    }
                 }
             }
             "--error" => p.partial_error_rules.push(RuleCode::from(value!())),
@@ -142,7 +150,8 @@ pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
             "--style" => p.partial_style_rules.push(RuleCode::from(value!())),
             "--ignore" => p.partial_ignore_rules.push(RuleCode::from(value!())),
             "--trusted-registry" => {
-                p.partial_allowed_registries.insert(Registry::from(value!().as_str()));
+                p.partial_allowed_registries
+                    .insert(Registry::from(value!().as_str()));
             }
             "--require-label" => {
                 let v = value!();
@@ -150,7 +159,9 @@ pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
                     Ok((k, t)) => {
                         p.partial_label_schema.insert(k, t); // Map.fromList: later duplicates win
                     }
-                    Err(e) => return CommandlineOutcome::Error(format!("option --require-label: {e}")),
+                    Err(e) => {
+                        return CommandlineOutcome::Error(format!("option --require-label: {e}"));
+                    }
                 }
             }
             "--strict-labels" => p.partial_strict_labels = Some(true),
@@ -218,19 +229,34 @@ mod tests {
 
     #[test]
     fn parse_short_v() {
-        check_commandline(&["-v"], CommandlineConfig { show_version: true, ..Default::default() });
+        check_commandline(
+            &["-v"],
+            CommandlineConfig {
+                show_version: true,
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
     fn parse_version() {
-        check_commandline(&["--version"], CommandlineConfig { show_version: true, ..Default::default() });
+        check_commandline(
+            &["--version"],
+            CommandlineConfig {
+                show_version: true,
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
     fn parse_short_c() {
         check_commandline(
             &["-c", "hadolint.yaml"],
-            CommandlineConfig { config_file: Some("hadolint.yaml".into()), ..Default::default() },
+            CommandlineConfig {
+                config_file: Some("hadolint.yaml".into()),
+                ..Default::default()
+            },
         );
     }
 
@@ -238,20 +264,32 @@ mod tests {
     fn parse_config() {
         check_commandline(
             &["--config", "hadolint.yaml"],
-            CommandlineConfig { config_file: Some("hadolint.yaml".into()), ..Default::default() },
+            CommandlineConfig {
+                config_file: Some("hadolint.yaml".into()),
+                ..Default::default()
+            },
         );
     }
 
     #[test]
     fn parse_dockerfile() {
-        check_commandline(&["Dockerfile"], CommandlineConfig { dockerfiles: s(&["Dockerfile"]), ..Default::default() });
+        check_commandline(
+            &["Dockerfile"],
+            CommandlineConfig {
+                dockerfiles: s(&["Dockerfile"]),
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
     fn parse_dockerfile1_dockerfile2() {
         check_commandline(
             &["Dockerfile1", "Dockerfile2"],
-            CommandlineConfig { dockerfiles: s(&["Dockerfile1", "Dockerfile2"]), ..Default::default() },
+            CommandlineConfig {
+                dockerfiles: s(&["Dockerfile1", "Dockerfile2"]),
+                ..Default::default()
+            },
         );
     }
 
@@ -259,25 +297,43 @@ mod tests {
     fn parse_file_path_in_report() {
         check_commandline(
             &["--file-path-in-report", "foobar/Dockerfile"],
-            CommandlineConfig { file_path_in_report_option: Some("foobar/Dockerfile".into()), ..Default::default() },
+            CommandlineConfig {
+                file_path_in_report_option: Some("foobar/Dockerfile".into()),
+                ..Default::default()
+            },
         );
     }
 
     #[test]
     fn parse_single_output_destination_short_form() {
-        check_commandline(&["-o", "report.log"], CommandlineConfig { output: s(&["report.log"]), ..Default::default() });
+        check_commandline(
+            &["-o", "report.log"],
+            CommandlineConfig {
+                output: s(&["report.log"]),
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
     fn parse_single_output_destination_long_form() {
-        check_commandline(&["--output", "report.log"], CommandlineConfig { output: s(&["report.log"]), ..Default::default() });
+        check_commandline(
+            &["--output", "report.log"],
+            CommandlineConfig {
+                output: s(&["report.log"]),
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
     fn parse_multiple_output_destinations() {
         check_commandline(
             &["--output", "report.log", "-o", "other-report.log"],
-            CommandlineConfig { output: s(&["report.log", "other-report.log"]), ..Default::default() },
+            CommandlineConfig {
+                output: s(&["report.log", "other-report.log"]),
+                ..Default::default()
+            },
         );
     }
 
@@ -288,7 +344,10 @@ mod tests {
 
     #[test]
     fn parse_no_color() {
-        check_commandline(&["--no-color"], with_cfg(|p| p.partial_no_color = Some(true)));
+        check_commandline(
+            &["--no-color"],
+            with_cfg(|p| p.partial_no_color = Some(true)),
+        );
     }
 
     #[test]
@@ -303,12 +362,18 @@ mod tests {
 
     #[test]
     fn parse_f_json() {
-        check_commandline(&["-f", "json"], with_cfg(|p| p.partial_formats = vec![OutputFormat::Json]));
+        check_commandline(
+            &["-f", "json"],
+            with_cfg(|p| p.partial_formats = vec![OutputFormat::Json]),
+        );
     }
 
     #[test]
     fn parse_format() {
-        check_commandline(&["--format", "sarif"], with_cfg(|p| p.partial_formats = vec![OutputFormat::Sarif]));
+        check_commandline(
+            &["--format", "sarif"],
+            with_cfg(|p| p.partial_formats = vec![OutputFormat::Sarif]),
+        );
     }
 
     #[test]
@@ -321,7 +386,10 @@ mod tests {
 
     #[test]
     fn parse_error() {
-        check_commandline(&["--error", "DL3010"], with_cfg(|p| p.partial_error_rules = vec![rc("DL3010")]));
+        check_commandline(
+            &["--error", "DL3010"],
+            with_cfg(|p| p.partial_error_rules = vec![rc("DL3010")]),
+        );
     }
 
     #[test]
@@ -334,7 +402,10 @@ mod tests {
 
     #[test]
     fn parse_warning() {
-        check_commandline(&["--warning", "DL3010"], with_cfg(|p| p.partial_warning_rules = vec![rc("DL3010")]));
+        check_commandline(
+            &["--warning", "DL3010"],
+            with_cfg(|p| p.partial_warning_rules = vec![rc("DL3010")]),
+        );
     }
 
     #[test]
@@ -347,7 +418,10 @@ mod tests {
 
     #[test]
     fn parse_info() {
-        check_commandline(&["--info", "DL3010"], with_cfg(|p| p.partial_info_rules = vec![rc("DL3010")]));
+        check_commandline(
+            &["--info", "DL3010"],
+            with_cfg(|p| p.partial_info_rules = vec![rc("DL3010")]),
+        );
     }
 
     #[test]
@@ -360,7 +434,10 @@ mod tests {
 
     #[test]
     fn parse_style() {
-        check_commandline(&["--style", "DL3010"], with_cfg(|p| p.partial_style_rules = vec![rc("DL3010")]));
+        check_commandline(
+            &["--style", "DL3010"],
+            with_cfg(|p| p.partial_style_rules = vec![rc("DL3010")]),
+        );
     }
 
     #[test]
@@ -373,7 +450,10 @@ mod tests {
 
     #[test]
     fn parse_ignore() {
-        check_commandline(&["--ignore", "DL3010"], with_cfg(|p| p.partial_ignore_rules = vec![rc("DL3010")]));
+        check_commandline(
+            &["--ignore", "DL3010"],
+            with_cfg(|p| p.partial_ignore_rules = vec![rc("DL3010")]),
+        );
     }
 
     #[test]
@@ -389,7 +469,8 @@ mod tests {
         check_commandline(
             &["--trusted-registry", "foobar.com"],
             with_cfg(|p| {
-                p.partial_allowed_registries.insert(Registry::from("foobar.com"));
+                p.partial_allowed_registries
+                    .insert(Registry::from("foobar.com"));
             }),
         );
     }
@@ -397,10 +478,17 @@ mod tests {
     #[test]
     fn parse_trusted_registry_twice() {
         check_commandline(
-            &["--trusted-registry", "foobar.com", "--trusted-registry", "barfoo.io"],
+            &[
+                "--trusted-registry",
+                "foobar.com",
+                "--trusted-registry",
+                "barfoo.io",
+            ],
             with_cfg(|p| {
-                p.partial_allowed_registries.insert(Registry::from("foobar.com"));
-                p.partial_allowed_registries.insert(Registry::from("barfoo.io"));
+                p.partial_allowed_registries
+                    .insert(Registry::from("foobar.com"));
+                p.partial_allowed_registries
+                    .insert(Registry::from("barfoo.io"));
             }),
         );
     }
@@ -410,7 +498,8 @@ mod tests {
         check_commandline(
             &["--require-label", "foo:email"],
             with_cfg(|p| {
-                p.partial_label_schema.insert("foo".into(), LabelType::Email);
+                p.partial_label_schema
+                    .insert("foo".into(), LabelType::Email);
             }),
         );
     }
@@ -418,17 +507,27 @@ mod tests {
     #[test]
     fn parse_require_label_twice() {
         check_commandline(
-            &["--require-label", "foo:email", "--require-label", "bar:text"],
+            &[
+                "--require-label",
+                "foo:email",
+                "--require-label",
+                "bar:text",
+            ],
             with_cfg(|p| {
-                p.partial_label_schema.insert("foo".into(), LabelType::Email);
-                p.partial_label_schema.insert("bar".into(), LabelType::RawText);
+                p.partial_label_schema
+                    .insert("foo".into(), LabelType::Email);
+                p.partial_label_schema
+                    .insert("bar".into(), LabelType::RawText);
             }),
         );
     }
 
     #[test]
     fn parse_strict_labels() {
-        check_commandline(&["--strict-labels"], with_cfg(|p| p.partial_strict_labels = Some(true)));
+        check_commandline(
+            &["--strict-labels"],
+            with_cfg(|p| p.partial_strict_labels = Some(true)),
+        );
     }
 
     #[test]

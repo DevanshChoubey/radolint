@@ -4,10 +4,10 @@
 //! Parsers are `fn(&mut Parser) -> PResult<T>`; `?esc` is `p.esc`. See `combinator.rs`.
 
 #![allow(unused_variables)]
-use dlint_syntax::*;
 use crate::cmd::parse_cmd;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
+use dlint_syntax::*;
 
 /// Haskell `data CheckFlag` (Healthcheck.hs, module-private upstream).
 #[derive(Debug, Clone)]
@@ -82,19 +82,34 @@ fn full_check(p: &mut Parser) -> PResult<Check<String>> {
         return unexpected_flag(p, k, v);
     }
     if intervals.len() >= 2 {
-        return custom_error(p, DockerfileError::DuplicateFlagError("--interval".to_string()));
+        return custom_error(
+            p,
+            DockerfileError::DuplicateFlagError("--interval".to_string()),
+        );
     }
     if timeouts.len() >= 2 {
-        return custom_error(p, DockerfileError::DuplicateFlagError("--timeout".to_string()));
+        return custom_error(
+            p,
+            DockerfileError::DuplicateFlagError("--timeout".to_string()),
+        );
     }
     if start_periods.len() >= 2 {
-        return custom_error(p, DockerfileError::DuplicateFlagError("--start-period".to_string()));
+        return custom_error(
+            p,
+            DockerfileError::DuplicateFlagError("--start-period".to_string()),
+        );
     }
     if start_intervals.len() >= 2 {
-        return custom_error(p, DockerfileError::DuplicateFlagError("--start-interval".to_string()));
+        return custom_error(
+            p,
+            DockerfileError::DuplicateFlagError("--start-interval".to_string()),
+        );
     }
     if retries_d.len() >= 2 {
-        return custom_error(p, DockerfileError::DuplicateFlagError("--retries".to_string()));
+        return custom_error(
+            p,
+            DockerfileError::DuplicateFlagError("--retries".to_string()),
+        );
     }
     let check_command = match parse_cmd(p)? {
         Instruction::Cmd(c) => c,
@@ -113,8 +128,16 @@ fn full_check(p: &mut Parser) -> PResult<Check<String>> {
 /// Haskell `checkFlag` (Healthcheck.hs).
 pub fn check_flag(p: &mut Parser) -> PResult<CheckFlag> {
     p.choice(&[
-        &|p| p.label("--interval", |p| duration_flag(p, "--interval=").map(CheckFlag::FlagInterval)),
-        &|p| p.label("--timeout", |p| duration_flag(p, "--timeout=").map(CheckFlag::FlagTimeout)),
+        &|p| {
+            p.label("--interval", |p| {
+                duration_flag(p, "--interval=").map(CheckFlag::FlagInterval)
+            })
+        },
+        &|p| {
+            p.label("--timeout", |p| {
+                duration_flag(p, "--timeout=").map(CheckFlag::FlagTimeout)
+            })
+        },
         &|p| {
             p.label("--start-period", |p| {
                 duration_flag(p, "--start-period=").map(CheckFlag::FlagStartPeriod)
@@ -135,7 +158,11 @@ fn float_to_pico(f: f32) -> i128 {
     let bits = f.to_bits();
     let exp = ((bits >> 23) & 0xff) as i32;
     let frac = (bits & 0x7f_ffff) as i128;
-    let (m, e) = if exp == 0 { (frac, -149) } else { (frac | 0x80_0000, exp - 150) };
+    let (m, e) = if exp == 0 {
+        (frac, -149)
+    } else {
+        (frac | 0x80_0000, exp - 150)
+    };
     let scaled = m * 1_000_000_000_000i128;
     if e >= 0 {
         scaled << e
@@ -159,9 +186,15 @@ pub fn duration_flag(p: &mut Parser, flag_name: &str) -> PResult<Duration> {
         p.choice(&[&|p| p.char('s'), &|p| p.char('m'), &|p| p.char('h')])
     })?;
     match unit {
-        's' => Ok(Duration { duration_time: value }),
-        'm' => Ok(Duration { duration_time: DiffTime(value.0 * 60) }),
-        'h' => Ok(Duration { duration_time: DiffTime(value.0 * 60 * 60) }),
+        's' => Ok(Duration {
+            duration_time: value,
+        }),
+        'm' => Ok(Duration {
+            duration_time: DiffTime(value.0 * 60),
+        }),
+        'h' => Ok(Duration {
+            duration_time: DiffTime(value.0 * 60 * 60),
+        }),
         _ => p.fail("only 's', 'm' or 'h' are allowed as the duration"),
     }
 }
@@ -198,12 +231,21 @@ mod tests {
     use crate::parse_text;
 
     fn d(pico: i128) -> Option<Duration> {
-        Some(Duration { duration_time: DiffTime(pico) })
+        Some(Duration {
+            duration_time: DiffTime(pico),
+        })
     }
     fn secs(s: i128) -> Option<Duration> {
         Some(Duration::from_seconds(s))
     }
-    fn check(cmd: &str, i: Option<Duration>, t: Option<Duration>, sp: Option<Duration>, si: Option<Duration>, r: Option<i64>) -> Instruction<String> {
+    fn check(
+        cmd: &str,
+        i: Option<Duration>,
+        t: Option<Duration>,
+        sp: Option<Duration>,
+        si: Option<Duration>,
+        r: Option<i64>,
+    ) -> Instruction<String> {
         Instruction::Healthcheck(Check::Check(CheckArgs {
             check_command: Arguments::ArgumentsText(cmd.to_string()),
             interval: i,
@@ -214,7 +256,11 @@ mod tests {
         }))
     }
     fn assert_ast(src: &str, expected: Vec<Instruction<String>>) {
-        let got: Vec<_> = parse_text(src).expect("parse failed").into_iter().map(|i| i.instruction).collect();
+        let got: Vec<_> = parse_text(src)
+            .expect("parse failed")
+            .into_iter()
+            .map(|i| i.instruction)
+            .collect();
         assert_eq!(got, expected);
     }
 
@@ -222,49 +268,98 @@ mod tests {
     fn parse_healthcheck_with_interval() {
         assert_ast(
             "HEALTHCHECK --interval=5m \\\nCMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", secs(300), None, None, None, None)],
+            vec![check(
+                "curl -f http://localhost/",
+                secs(300),
+                None,
+                None,
+                None,
+                None,
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_retries() {
         assert_ast(
             "HEALTHCHECK --retries=10 CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", None, None, None, None, Some(10))],
+            vec![check(
+                "curl -f http://localhost/",
+                None,
+                None,
+                None,
+                None,
+                Some(10),
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_timeout() {
         assert_ast(
             "HEALTHCHECK --timeout=10s CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", None, secs(10), None, None, None)],
+            vec![check(
+                "curl -f http://localhost/",
+                None,
+                secs(10),
+                None,
+                None,
+                None,
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_start_period() {
         assert_ast(
             "HEALTHCHECK --start-period=2m CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", None, None, secs(120), None, None)],
+            vec![check(
+                "curl -f http://localhost/",
+                None,
+                None,
+                secs(120),
+                None,
+                None,
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_start_interval() {
         assert_ast(
             "HEALTHCHECK --start-interval=4m CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", None, None, None, secs(240), None)],
+            vec![check(
+                "curl -f http://localhost/",
+                None,
+                None,
+                None,
+                secs(240),
+                None,
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_all_flags() {
         assert_ast(
             "HEALTHCHECK --start-period=2s --start-interval=10s --timeout=1m --retries=3 --interval=5s    CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", secs(5), secs(60), secs(2), secs(10), Some(3))],
+            vec![check(
+                "curl -f http://localhost/",
+                secs(5),
+                secs(60),
+                secs(2),
+                secs(10),
+                Some(3),
+            )],
         );
     }
     #[test]
     fn parse_healthcheck_with_no_flags() {
         assert_ast(
             "HEALTHCHECK CMD curl -f http://localhost/",
-            vec![check("curl -f http://localhost/", None, None, None, None, None)],
+            vec![check(
+                "curl -f http://localhost/",
+                None,
+                None,
+                None,
+                None,
+                None,
+            )],
         );
     }
     #[test]

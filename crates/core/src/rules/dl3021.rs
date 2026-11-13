@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3021.hs.
 
-use crate::rule::{drop_quotes, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, drop_quotes, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -10,13 +10,13 @@ pub fn rule() -> Box<dyn Rule> {
     let severity = DLSeverity::DLErrorC;
     let message = "COPY with more than 2 arguments requires the last argument to end with /";
     let check = |instr: &Instruction<_>| match instr {
-        Instruction::Copy(CopyArgs { source_paths, target_path }, _) => {
-            if source_paths.len() > 1 {
-                ends_with_slash(target_path)
-            } else {
-                true
-            }
-        }
+        Instruction::Copy(
+            CopyArgs {
+                source_paths,
+                target_path,
+            },
+            _,
+        ) if source_paths.len() > 1 => ends_with_slash(target_path),
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -25,7 +25,7 @@ pub fn rule() -> Box<dyn Rule> {
 /// Haskell `endsWithSlash`.
 pub fn ends_with_slash(t: &TargetPath) -> bool {
     let t = &t.un_target_path;
-    !t.is_empty() && drop_quotes(t).chars().last() == Some('/')
+    !t.is_empty() && drop_quotes(t).ends_with('/')
 }
 
 #[cfg(test)]

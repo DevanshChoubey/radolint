@@ -69,7 +69,9 @@ mod tests {
     }
     #[test]
     fn dont_warn_wrong_dir_mount_and_no_cache() {
-        both_catch_not("RUN --mount=type=cache,target=/var/cache/foo apk add --no-cache -U curl=7.77.0");
+        both_catch_not(
+            "RUN --mount=type=cache,target=/var/cache/foo apk add --no-cache -U curl=7.77.0",
+        );
     }
     #[test]
     fn warn_cache_mount_wrong_dir() {

@@ -75,7 +75,7 @@ pub mod dl4006;
 pub mod shellcheck;
 
 use crate::config::configuration::Configuration;
-use crate::rule::{mconcat, Rule};
+use crate::rule::{Rule, mconcat};
 
 /// Haskell `Process.failures`: all rules combined in upstream order.
 pub fn failures(config: &Configuration) -> Box<dyn Rule> {

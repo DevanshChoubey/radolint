@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3020.hs.
 
-use crate::rule::{archive_file_format_extensions, drop_quotes, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, archive_file_format_extensions, drop_quotes, simple_rule};
 use dlint_syntax::Instruction;
 
 /// Haskell `rule`.
@@ -22,13 +22,17 @@ pub fn rule() -> Box<dyn Rule> {
 /// Haskell `isArchive`.
 fn is_archive(path: &str) -> bool {
     let p = drop_quotes(path);
-    archive_file_format_extensions().iter().any(|ftype| p.ends_with(ftype))
+    archive_file_format_extensions()
+        .iter()
+        .any(|ftype| p.ends_with(ftype))
 }
 
 /// Haskell `isUrl`.
 fn is_url(path: &str) -> bool {
     let p = drop_quotes(path);
-    ["https://", "http://"].iter().any(|proto| p.starts_with(proto))
+    ["https://", "http://"]
+        .iter()
+        .any(|proto| p.starts_with(proto))
 }
 
 #[cfg(test)]

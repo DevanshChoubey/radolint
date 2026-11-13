@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3059.hs.
 
 use crate::rule::{
-    add_fail, empty_state, fold_arguments, modify, pipe, custom_rule, CheckFailure, DLSeverity,
-    Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state,
+    fold_arguments, modify, pipe,
 };
 use crate::shell::ParsedShell;
 use dlint_syntax::{Instruction, Linenumber, RunArgs, RunFlags};
@@ -11,7 +11,10 @@ use dlint_syntax::{Instruction, Linenumber, RunArgs, RunFlags};
 #[derive(Debug, Clone, PartialEq)]
 enum Acc {
     /// `Acc { flags :: RunFlags, count :: Int }`
-    Acc { flags: RunFlags, count: i64 },
+    Acc {
+        flags: RunFlags,
+        count: i64,
+    },
     Empty,
 }
 
@@ -23,32 +26,33 @@ pub fn rule() -> Box<dyn Rule> {
     let severity = DLSeverity::DLInfoC;
     let message = "Multiple consecutive `RUN` instructions. Consider consolidation.";
 
-    let check = move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(ar, fl)) => {
-            let n = fold_arguments(count_commands, ar);
-            if st.state == Acc::Empty {
-                pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
-            } else if flags_of(&st.state) != Some(fl) {
-                pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
-            } else if n > 2 || count_of(&st.state) > 2 {
-                pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
-            } else {
-                pipe(st, |s| {
-                    add_fail(
-                        CheckFailure {
-                            code: RuleCode::from(code),
-                            severity,
-                            message: message.to_string(),
-                            line,
-                        },
-                        s,
-                    )
-                })
+    let check =
+        move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| match instr {
+            Instruction::Run(RunArgs(ar, fl)) => {
+                let n = fold_arguments(count_commands, ar);
+                if st.state == Acc::Empty {
+                    pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
+                } else if flags_of(&st.state) != Some(fl) {
+                    pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
+                } else if n > 2 || count_of(&st.state) > 2 {
+                    pipe(st, |s| modify(|a| remember(fl.clone(), n, a), s))
+                } else {
+                    pipe(st, |s| {
+                        add_fail(
+                            CheckFailure {
+                                code: RuleCode::from(code),
+                                severity,
+                                message: message.to_string(),
+                                line,
+                            },
+                            s,
+                        )
+                    })
+                }
             }
-        }
-        Instruction::Comment(_) => st,
-        _ => pipe(st, |s| modify(reset, s)),
-    };
+            Instruction::Comment(_) => st,
+            _ => pipe(st, |s| modify(reset, s)),
+        };
     custom_rule(check, empty_state(Acc::Empty))
 }
 
@@ -67,7 +71,10 @@ fn count_of(a: &Acc) -> i64 {
 }
 
 fn remember(fl: RunFlags, cn: i64, _: Acc) -> Acc {
-    Acc::Acc { flags: fl, count: cn }
+    Acc::Acc {
+        flags: fl,
+        count: cn,
+    }
 }
 
 fn reset(_: Acc) -> Acc {
@@ -104,7 +111,10 @@ mod tests {
     }
     #[test]
     fn not_ok_with_two_runs_separated_by_two_comment() {
-        rule_catches("DL3059", "RUN /foo.sh\n# a comment\n# another comment\nRUN /bar.sh");
+        rule_catches(
+            "DL3059",
+            "RUN /foo.sh\n# a comment\n# another comment\nRUN /bar.sh",
+        );
     }
     #[test]
     fn ok_with_one_run_after_a_comment() {
@@ -112,16 +122,25 @@ mod tests {
     }
     #[test]
     fn ok_with_two_consecutive_runs_when_flags_are_different_1() {
-        rule_catches_not("DL3059", "RUN --mount=type=secret,id=foo /foo.sh\nRUN /bar.sh");
+        rule_catches_not(
+            "DL3059",
+            "RUN --mount=type=secret,id=foo /foo.sh\nRUN /bar.sh",
+        );
     }
     #[test]
     fn ok_with_two_consecutive_runs_when_flags_are_different_2() {
-        let dfile = ["RUN --mount=type=secret,id=foo /foo.sh", "RUN --mount=type=secret,id=bar /bar.sh"];
+        let dfile = [
+            "RUN --mount=type=secret,id=foo /foo.sh",
+            "RUN --mount=type=secret,id=bar /bar.sh",
+        ];
         rule_catches_not("DL3059", &(dfile.join("\n") + "\n"));
     }
     #[test]
     fn not_ok_with_two_consecutive_runs_when_flags_are_equal() {
-        let dfile = ["RUN --mount=type=secret,id=foo /foo.sh", "RUN --mount=type=secret,id=foo /bar.sh"];
+        let dfile = [
+            "RUN --mount=type=secret,id=foo /foo.sh",
+            "RUN --mount=type=secret,id=foo /bar.sh",
+        ];
         rule_catches("DL3059", &(dfile.join("\n") + "\n"));
     }
     #[test]

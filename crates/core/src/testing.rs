@@ -14,7 +14,11 @@ use dlint_parser::parse_text;
 use dlint_syntax::{Dockerfile, Instruction, InstructionPos};
 
 /// Haskell `assertChecks`: parse `dockerfile <> "\n"` and hand the failures to `make_assertions`.
-pub fn assert_checks_with<A>(config: &Configuration, dockerfile: &str, make_assertions: impl FnOnce(Failures) -> A) -> A {
+pub fn assert_checks_with<A>(
+    config: &Configuration,
+    dockerfile: &str,
+    make_assertions: impl FnOnce(Failures) -> A,
+) -> A {
     match parse_text(&format!("{dockerfile}\n")) {
         Err(err) => panic!("{err:?}"),
         Ok(d) => make_assertions(process::run(config, &d)),
@@ -42,7 +46,10 @@ pub fn assert_on_build_checks_with<A>(
 }
 
 /// `assertOnBuildChecks` with the default configuration.
-pub fn assert_on_build_checks<A>(dockerfile: &str, make_assertions: impl FnOnce(Failures) -> A) -> A {
+pub fn assert_on_build_checks<A>(
+    dockerfile: &str,
+    make_assertions: impl FnOnce(Failures) -> A,
+) -> A {
     assert_on_build_checks_with(&Configuration::default(), dockerfile, make_assertions)
 }
 
@@ -66,7 +73,10 @@ pub fn has_invalid_lines(failures: &Failures) -> bool {
 pub fn rule_catches_with(config: &Configuration, expected: &str, dockerfile: &str) {
     assert_checks_with(config, dockerfile, |checks| {
         fails_with_some(&RuleCode::from(expected), &checks);
-        assert!(!has_invalid_lines(&checks), "Incorrect line number for result");
+        assert!(
+            !has_invalid_lines(&checks),
+            "Incorrect line number for result"
+        );
     })
 }
 /// `ruleCatches` with the default configuration.
@@ -78,7 +88,10 @@ pub fn rule_catches(expected: &str, dockerfile: &str) {
 pub fn on_build_rule_catches_with(config: &Configuration, code: &str, dockerfile: &str) {
     assert_on_build_checks_with(config, dockerfile, |checks| {
         fails_with(1, &RuleCode::from(code), &checks);
-        assert!(!has_invalid_lines(&checks), "Incorrect line number for result");
+        assert!(
+            !has_invalid_lines(&checks),
+            "Incorrect line number for result"
+        );
     })
 }
 /// `onBuildRuleCatches` with the default configuration.
@@ -88,7 +101,9 @@ pub fn on_build_rule_catches(code: &str, dockerfile: &str) {
 
 /// Haskell `ruleCatchesNot`.
 pub fn rule_catches_not_with(config: &Configuration, code: &str, dockerfile: &str) {
-    assert_checks_with(config, dockerfile, |checks| fails_with(0, &RuleCode::from(code), &checks))
+    assert_checks_with(config, dockerfile, |checks| {
+        fails_with(0, &RuleCode::from(code), &checks)
+    })
 }
 /// `ruleCatchesNot` with the default configuration.
 pub fn rule_catches_not(code: &str, dockerfile: &str) {
@@ -97,7 +112,9 @@ pub fn rule_catches_not(code: &str, dockerfile: &str) {
 
 /// Haskell `onBuildRuleCatchesNot`.
 pub fn on_build_rule_catches_not_with(config: &Configuration, code: &str, dockerfile: &str) {
-    assert_on_build_checks_with(config, dockerfile, |checks| fails_with(0, &RuleCode::from(code), &checks))
+    assert_on_build_checks_with(config, dockerfile, |checks| {
+        fails_with(0, &RuleCode::from(code), &checks)
+    })
 }
 /// `onBuildRuleCatchesNot` with the default configuration.
 pub fn on_build_rule_catches_not(code: &str, dockerfile: &str) {
@@ -106,13 +123,19 @@ pub fn on_build_rule_catches_not(code: &str, dockerfile: &str) {
 
 /// Haskell `formatChecksNoColor`.
 pub fn format_checks_no_color<'a>(checks: impl IntoIterator<Item = &'a CheckFailure>) -> String {
-    checks.into_iter().map(|c| format!("{}\n", format_check(true, "line", c))).collect()
+    checks
+        .into_iter()
+        .map(|c| format!("{}\n", format_check(true, "line", c)))
+        .collect()
 }
 
 /// Haskell `failsWithSome`.
 pub fn fails_with_some(expected: &RuleCode, failures: &Failures) {
     if !failures.iter().any(|f| &f.code == expected) {
-        panic!("I was expecting to catch at least one error for {}", expected.show());
+        panic!(
+            "I was expecting to catch at least one error for {}",
+            expected.show()
+        );
     }
 }
 
@@ -138,7 +161,10 @@ pub fn fails_shellcheck(checks: &Failures) {
 
 /// Haskell `passesShellcheck`.
 pub fn passes_shellcheck(checks: &Failures) {
-    let matched: Vec<&CheckFailure> = checks.iter().filter(|f| f.code.un_rule_code.starts_with("SC")).collect();
+    let matched: Vec<&CheckFailure> = checks
+        .iter()
+        .filter(|f| f.code.un_rule_code.starts_with("SC"))
+        .collect();
     if !matched.is_empty() {
         panic!(
             "I was expecting to catch no errors with shellcheck. Found: \n{}",
@@ -149,14 +175,24 @@ pub fn passes_shellcheck(checks: &Failures) {
 
 /// Run the formatter into a string (`capture (write [] [format] noColor (Just "<string>") results)`).
 pub fn capture_format(format: OutputFormat, failures: Vec<CheckFailure>, no_color: bool) -> String {
-    let results = vec![FormatResult { file_name: "<string>".to_string(), errors: vec![], checks: failures }];
+    let results = vec![FormatResult {
+        file_name: "<string>".to_string(),
+        errors: vec![],
+        checks: failures,
+    }];
     let mut buf: Vec<u8> = vec![];
-    crate::formatter::h_write(&mut buf, format, no_color, Some("<string>"), &results).expect("write");
+    crate::formatter::h_write(&mut buf, format, no_color, Some("<string>"), &results)
+        .expect("write");
     String::from_utf8(buf).expect("utf8")
 }
 
 /// Haskell `assertFormatter`.
-pub fn assert_formatter(format: OutputFormat, failures: Vec<CheckFailure>, no_color: bool, expectation: &str) {
+pub fn assert_formatter(
+    format: OutputFormat,
+    failures: Vec<CheckFailure>,
+    no_color: bool,
+    expectation: &str,
+) {
     assert_eq!(capture_format(format, failures, no_color), expectation);
 }
 
@@ -168,14 +204,20 @@ pub fn assert_formatter_json(
     expectation: &serde_json::Value,
 ) {
     let cap = capture_format(format, failures, no_color);
-    let v: serde_json::Value = serde_json::from_str(&cap).unwrap_or_else(|e| panic!("invalid JSON ({e}): {cap}"));
+    let v: serde_json::Value =
+        serde_json::from_str(&cap).unwrap_or_else(|e| panic!("invalid JSON ({e}): {cap}"));
     assert_eq!(&v, expectation);
 }
 
 /// Haskell `assertFormatterXML`: compares the captured output with the expected XML text.
 /// DIVERGENCE: there is no XML document type here; porters of the XML formatter specs compare
 /// the (whitespace-normalised) rendered text instead of `Text.XML.Document` values.
-pub fn assert_formatter_xml(format: OutputFormat, failures: Vec<CheckFailure>, no_color: bool, expectation: &str) {
+pub fn assert_formatter_xml(
+    format: OutputFormat,
+    failures: Vec<CheckFailure>,
+    no_color: bool,
+    expectation: &str,
+) {
     let cap = capture_format(format, failures, no_color);
     assert_eq!(cap.trim(), expectation.trim());
 }

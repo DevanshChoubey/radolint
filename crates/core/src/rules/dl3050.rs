@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3050.hs.
 
 use crate::rule::LabelSchema;
+use crate::rule::{DLSeverity, Rule, simple_rule};
 use crate::shell::ParsedShell;
-use crate::rule::{simple_rule, DLSeverity, Rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -13,12 +13,8 @@ pub fn rule(label_schema: &LabelSchema, strict_labels: bool) -> Box<dyn Rule> {
     let message = "Superfluous label(s) present.";
     let label_schema = label_schema.clone();
     let check = move |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Label(pairs) => {
-            if strict_labels {
-                pairs.iter().all(|(k, _)| label_schema.contains_key(k))
-            } else {
-                true
-            }
+        Instruction::Label(pairs) if strict_labels => {
+            pairs.iter().all(|(k, _)| label_schema.contains_key(k))
         }
         _ => true,
     };
@@ -33,7 +29,8 @@ mod tests {
 
     fn config() -> Configuration {
         let mut c = Configuration::default();
-        c.label_schema.insert("required".to_string(), LabelType::RawText);
+        c.label_schema
+            .insert("required".to_string(), LabelType::RawText);
         c.strict_labels = true;
         c
     }

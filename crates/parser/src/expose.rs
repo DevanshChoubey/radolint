@@ -4,10 +4,9 @@
 //! Parsers are `fn(&mut Parser) -> PResult<T>`; `?esc` is `p.esc`. See `combinator.rs`.
 
 #![allow(unused_variables)]
-use dlint_syntax::*;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-
+use dlint_syntax::*;
 
 /// Haskell `parseExpose` (Expose.hs).
 pub fn parse_expose(p: &mut Parser) -> PResult<Instruction<String>> {
@@ -25,11 +24,17 @@ pub fn ports(p: &mut Parser) -> PResult<Ports> {
 pub fn portspec(p: &mut Parser) -> PResult<PortSpec> {
     p.alt(
         |s| {
-            s.label("A range of ports optionally followed by the protocol", |s| {
-                s.try_(parse_port_range_spec)
-            })
+            s.label(
+                "A range of ports optionally followed by the protocol",
+                |s| s.try_(parse_port_range_spec),
+            )
         },
-        |s| s.label("A port optionally followed by the protocol", parse_port_spec),
+        |s| {
+            s.label(
+                "A port optionally followed by the protocol",
+                parse_port_spec,
+            )
+        },
     )
 }
 
@@ -47,7 +52,11 @@ pub fn parse_port_spec(p: &mut Parser) -> PResult<PortSpec> {
 pub fn port(p: &mut Parser) -> PResult<Port> {
     p.choice(&[
         &|s| s.label("a variable", |s| s.try_(port_variable)),
-        &|s| s.label("a port with its protocol (udp/tcp)", |s| s.try_(port_with_protocol)),
+        &|s| {
+            s.label("a port with its protocol (udp/tcp)", |s| {
+                s.try_(port_with_protocol)
+            })
+        },
         &|s| s.label("a valid port number", port_int),
     ])
 }
@@ -78,7 +87,7 @@ pub fn port_range(p: &mut Parser) -> PResult<PortRange> {
     p.char('-')?;
     let finish = p.try_(port_range_limit)?;
     let proto = p.alt(|s| s.try_(protocol), |_| Ok(Protocol::TCP))?;
-    Ok(PortRange(set_proto(start, proto.clone()), set_proto(finish, proto)))
+    Ok(PortRange(set_proto(start, proto), set_proto(finish, proto)))
 }
 
 /// Haskell `protocol` (Expose.hs).
@@ -129,16 +138,30 @@ mod tests {
     use crate::parser::parse_text;
 
     fn ast(content: &str) -> Vec<Instruction<String>> {
-        parse_text(content).unwrap().into_iter().map(|i| i.instruction).collect()
+        parse_text(content)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.instruction)
+            .collect()
     }
-    fn tcp(n: i64) -> Port { Port::Port(n, Protocol::TCP) }
-    fn udp(n: i64) -> Port { Port::Port(n, Protocol::UDP) }
-    fn sv(s: &str) -> Port { Port::PortStr(s.to_string()) }
+    fn tcp(n: i64) -> Port {
+        Port::Port(n, Protocol::TCP)
+    }
+    fn udp(n: i64) -> Port {
+        Port::Port(n, Protocol::UDP)
+    }
+    fn sv(s: &str) -> Port {
+        Port::PortStr(s.to_string())
+    }
     fn ex(v: Vec<PortSpec>) -> Vec<Instruction<String>> {
         vec![Instruction::Expose(Ports { un_ports: v })]
     }
-    fn ps(p: Port) -> PortSpec { PortSpec::PortSpec(p) }
-    fn pr(a: Port, b: Port) -> PortSpec { PortSpec::PortRangeSpec(PortRange(a, b)) }
+    fn ps(p: Port) -> PortSpec {
+        PortSpec::PortSpec(p)
+    }
+    fn pr(a: Port, b: Port) -> PortSpec {
+        PortSpec::PortRangeSpec(PortRange(a, b))
+    }
 
     #[test]
     fn should_handle_number_ports() {
@@ -147,12 +170,18 @@ mod tests {
 
     #[test]
     fn should_handle_many_number_ports() {
-        assert_eq!(ast("EXPOSE 8080 8081"), ex(vec![ps(tcp(8080)), ps(tcp(8081))]));
+        assert_eq!(
+            ast("EXPOSE 8080 8081"),
+            ex(vec![ps(tcp(8080)), ps(tcp(8081))])
+        );
     }
 
     #[test]
     fn should_handle_ports_with_protocol() {
-        assert_eq!(ast("EXPOSE 8080/TCP 8081/UDP"), ex(vec![ps(tcp(8080)), ps(udp(8081))]));
+        assert_eq!(
+            ast("EXPOSE 8080/TCP 8081/UDP"),
+            ex(vec![ps(tcp(8080)), ps(udp(8081))])
+        );
     }
 
     #[test]
@@ -181,17 +210,26 @@ mod tests {
 
     #[test]
     fn should_handle_one_variable_port_ranges_1() {
-        assert_eq!(ast("EXPOSE 8080-${bar}/udp"), ex(vec![pr(udp(8080), sv("${bar}"))]));
+        assert_eq!(
+            ast("EXPOSE 8080-${bar}/udp"),
+            ex(vec![pr(udp(8080), sv("${bar}"))])
+        );
     }
 
     #[test]
     fn should_handle_one_variable_port_ranges_2() {
-        assert_eq!(ast("EXPOSE ${foo}-8080/udp"), ex(vec![pr(sv("${foo}"), udp(8080))]));
+        assert_eq!(
+            ast("EXPOSE ${foo}-8080/udp"),
+            ex(vec![pr(sv("${foo}"), udp(8080))])
+        );
     }
 
     #[test]
     fn should_handle_two_variables_port_ranges() {
-        assert_eq!(ast("EXPOSE ${foo}-${bar}/udp"), ex(vec![pr(sv("${foo}"), sv("${bar}"))]));
+        assert_eq!(
+            ast("EXPOSE ${foo}-${bar}/udp"),
+            ex(vec![pr(sv("${foo}"), sv("${bar}"))])
+        );
     }
 
     #[test]

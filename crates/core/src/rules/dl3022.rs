@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3022.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, drop_quotes, empty_state, modify, pipe, CheckFailure, DLSeverity, Rule,
-    RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, drop_quotes,
+    empty_state, modify, pipe,
 };
 use dlint_syntax::{BaseImage, CopySource, Instruction, Linenumber};
 use std::collections::BTreeSet;
@@ -11,7 +11,10 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Acc {
     /// `Acc {count :: Int, names :: Set Text}`
-    Acc { count: i64, names: BTreeSet<String> },
+    Acc {
+        count: i64,
+        names: BTreeSet<String>,
+    },
     Empty,
 }
 
@@ -22,7 +25,9 @@ pub fn rule() -> Box<dyn Rule> {
     let message = "`COPY --from` should reference a previously defined `FROM` alias";
 
     let check = move |line: Linenumber, st: State<Acc>, instr: &Instruction<_>| match instr {
-        Instruction::From(BaseImage { alias: Some(als), .. }) => {
+        Instruction::From(BaseImage {
+            alias: Some(als), ..
+        }) => {
             let als = als.un_image_alias.clone();
             pipe(st, |s| modify(|a| inc_and_add_name(als, a), s))
         }
@@ -70,18 +75,30 @@ fn read_decimal(s: &str) -> Option<i64> {
 
 fn inc_and_add_name(s: String, acc: Acc) -> Acc {
     match acc {
-        Acc::Empty => Acc::Acc { count: 1, names: BTreeSet::from([s]) },
+        Acc::Empty => Acc::Acc {
+            count: 1,
+            names: BTreeSet::from([s]),
+        },
         Acc::Acc { count, mut names } => {
             names.insert(s);
-            Acc::Acc { count: count + 1, names }
+            Acc::Acc {
+                count: count + 1,
+                names,
+            }
         }
     }
 }
 
 fn inc_count(acc: Acc) -> Acc {
     match acc {
-        Acc::Empty => Acc::Acc { count: 1, names: BTreeSet::new() },
-        Acc::Acc { count, names } => Acc::Acc { count: count + 1, names },
+        Acc::Empty => Acc::Acc {
+            count: 1,
+            names: BTreeSet::new(),
+        },
+        Acc::Acc { count, names } => Acc::Acc {
+            count: count + 1,
+            names,
+        },
     }
 }
 
@@ -110,14 +127,24 @@ mod tests {
 
     #[test]
     fn warn_on_alias_defined_after() {
-        let docker_file = ["FROM scratch", "COPY --from=build foo .", "FROM node as build", "RUN baz"];
+        let docker_file = [
+            "FROM scratch",
+            "COPY --from=build foo .",
+            "FROM node as build",
+            "RUN baz",
+        ];
         rule_catches("DL3022", &(docker_file.join("\n") + "\n"));
     }
 
     #[test]
     fn dont_warn_on_correctly_defined_aliases() {
-        let docker_file =
-            ["FROM scratch as build", "RUN foo", "FROM node", "COPY --from=build foo .", "RUN baz"];
+        let docker_file = [
+            "FROM scratch as build",
+            "RUN foo",
+            "FROM node",
+            "COPY --from=build foo .",
+            "RUN baz",
+        ];
         rule_catches_not("DL3022", &(docker_file.join("\n") + "\n"));
     }
 
@@ -133,13 +160,23 @@ mod tests {
 
     #[test]
     fn dont_warn_on_valid_stage_count_as_from_count() {
-        let docker_file = ["FROM scratch as build", "RUN foo", "FROM node", "COPY --from=0 foo ."];
+        let docker_file = [
+            "FROM scratch as build",
+            "RUN foo",
+            "FROM node",
+            "COPY --from=0 foo .",
+        ];
         rule_catches_not("DL3022", &(docker_file.join("\n") + "\n"));
     }
 
     #[test]
     fn dont_warn_on_valid_stage_count_as_from_count_unaliased() {
-        let docker_file = ["FROM scratch", "RUN foo", "FROM node", "COPY --from=0 foo ."];
+        let docker_file = [
+            "FROM scratch",
+            "RUN foo",
+            "FROM node",
+            "COPY --from=0 foo .",
+        ];
         rule_catches_not("DL3022", &(docker_file.join("\n") + "\n"));
     }
 }

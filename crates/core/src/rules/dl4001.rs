@@ -2,10 +2,10 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL4001.hs.
 
 use crate::rule::{
-    add_fail, combine, custom_rule, empty_state, fold_arguments, modify, onbuild, pipe,
-    replace_with, CheckFailure, DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, combine, custom_rule, empty_state,
+    fold_arguments, modify, onbuild, pipe, replace_with,
 };
-use crate::shell::{find_command_names, ParsedShell};
+use crate::shell::{ParsedShell, find_command_names};
 use dlint_syntax::{Instruction, Linenumber, RunArgs};
 use std::collections::BTreeSet;
 
@@ -69,12 +69,18 @@ mod tests {
 
     #[test]
     fn warns_when_using_both_wget_and_curl() {
-        rule_catches("DL4001", &df(&["FROM node as foo", "RUN wget my.xyz", "RUN curl localhost"]));
+        rule_catches(
+            "DL4001",
+            &df(&["FROM node as foo", "RUN wget my.xyz", "RUN curl localhost"]),
+        );
     }
 
     #[test]
     fn warns_when_using_both_wget_and_curl_in_same_instruction() {
-        rule_catches("DL4001", &df(&["FROM node as foo", "RUN wget my.xyz && curl localhost"]));
+        rule_catches(
+            "DL4001",
+            &df(&["FROM node as foo", "RUN wget my.xyz && curl localhost"]),
+        );
     }
 
     #[test]
@@ -86,7 +92,12 @@ mod tests {
     fn does_not_warn_when_using_both_in_different_stages() {
         rule_catches_not(
             "DL4001",
-            &df(&["FROM node as foo", "RUN wget my.xyz", "FROM scratch", "RUN curl localhost"]),
+            &df(&[
+                "FROM node as foo",
+                "RUN wget my.xyz",
+                "FROM scratch",
+                "RUN curl localhost",
+            ]),
         );
     }
 
@@ -107,7 +118,12 @@ mod tests {
     #[test]
     fn only_warns_on_the_relevant_run_instruction() {
         assert_checks(
-            &df(&["FROM node as foo", "RUN wget my.xyz", "RUN curl my.xyz", "RUN echo hello"]),
+            &df(&[
+                "FROM node as foo",
+                "RUN wget my.xyz",
+                "RUN curl my.xyz",
+                "RUN echo hello",
+            ]),
             |f| fails_with(1, &RuleCode::from("DL4001"), &f),
         );
     }

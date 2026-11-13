@@ -64,8 +64,14 @@ mod tests {
     }
     #[test]
     fn ok_with_rm_rf_var_cache_yum() {
-        rule_catches_not("DL3032", "RUN yum install -y mariadb-10.4 && rm -rf /var/cache/yum/*");
-        on_build_rule_catches_not("DL3032", "RUN yum install -y mariadb-10.4 && rm -rf /var/cache/yum/*");
+        rule_catches_not(
+            "DL3032",
+            "RUN yum install -y mariadb-10.4 && rm -rf /var/cache/yum/*",
+        );
+        on_build_rule_catches_not(
+            "DL3032",
+            "RUN yum install -y mariadb-10.4 && rm -rf /var/cache/yum/*",
+        );
     }
     #[test]
     fn not_ok_with_clean_before_install() {

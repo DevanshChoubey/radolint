@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Checkstyle.hs.
 
-use super::format::{error_bundle_pretty, error_position, severity_text, FormatResult};
+use super::format::{FormatResult, error_bundle_pretty, error_position, severity_text};
 use crate::rule::{CheckFailure, DLSeverity};
 use dlint_parser::ParseError;
 use std::io::Write;
 
 /// Minimal stand-in for `Text.XML.Node` (only elements without children or with nodes).
 enum Node {
-    Element { name: &'static str, attrs: Vec<(&'static str, String)>, nodes: Vec<Node> },
+    Element {
+        name: &'static str,
+        attrs: Vec<(&'static str, String)>,
+        nodes: Vec<Node>,
+    },
 }
 
 // DIVERGENCE: xml-conduit's renderer is emulated by hand: attributes are emitted in `Data.Map`
@@ -103,7 +107,11 @@ fn to_file(result: &FormatResult, file_path_in_report: Option<&str>) -> Node {
         None => result.file_name.clone(),
         Some(p) => p.to_string(),
     };
-    Node::Element { name: "file", attrs: vec![("name", filepath)], nodes: render_nodes(result) }
+    Node::Element {
+        name: "file",
+        attrs: vec![("name", filepath)],
+        nodes: render_nodes(result),
+    }
 }
 
 /// Haskell `renderResults`.
@@ -111,12 +119,19 @@ fn render_results(results: &[FormatResult], file_path_in_report: Option<&str>) -
     Node::Element {
         name: "checkstyle",
         attrs: vec![("version", "4.3".to_string())],
-        nodes: results.iter().map(|r| to_file(r, file_path_in_report)).collect(),
+        nodes: results
+            .iter()
+            .map(|r| to_file(r, file_path_in_report))
+            .collect(),
     }
 }
 
 /// Haskell `hWrite`.
-pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_report: Option<&str>) -> std::io::Result<()> {
+pub fn h_write(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     let mut s = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     render_node(&render_results(results, file_path_in_report), &mut s);
     handle.write_all(s.as_bytes())
@@ -136,7 +151,11 @@ mod tests {
 
     #[test]
     fn empty_result_is_self_closed_file() {
-        let r = FormatResult { file_name: "a".into(), errors: vec![], checks: vec![] };
+        let r = FormatResult {
+            file_name: "a".into(),
+            errors: vec![],
+            checks: vec![],
+        };
         assert_eq!(
             render(&[r], None),
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><checkstyle version=\"4.3\"><file name=\"a\"/></checkstyle>"
@@ -149,7 +168,9 @@ mod tests {
             file_name: "a".into(),
             errors: vec![],
             checks: vec![CheckFailure {
-                code: RuleCode { un_rule_code: "DL3000".into() },
+                code: RuleCode {
+                    un_rule_code: "DL3000".into(),
+                },
                 severity: DLSeverity::DLErrorC,
                 message: "x<y".into(),
                 line: 2,

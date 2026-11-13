@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3067.hs.
 
-use crate::rule::{drop_quotes, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, drop_quotes, simple_rule};
 use crate::shell::ParsedShell;
 use dlint_syntax::*;
 
@@ -12,9 +12,13 @@ pub fn rule() -> Box<dyn Rule> {
     let message = "Do not copy an entire filesystem from another stage";
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Copy(CopyArgs { source_paths, target_path }, flags)
-            if matches!(flags.source_flag, CopySource::CopySource(_)) =>
-        {
+        Instruction::Copy(
+            CopyArgs {
+                source_paths,
+                target_path,
+            },
+            flags,
+        ) if matches!(flags.source_flag, CopySource::CopySource(_)) => {
             !(source_paths.iter().any(is_root_source) && is_root_target(target_path))
         }
         _ => true,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3062.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::{Instruction, RunArgs};
 
@@ -17,9 +17,14 @@ fn dl3062() -> Box<dyn Rule> {
     let message = "Pin versions in go. Instead of `go install <package>` use `go install <package>@<version>`";
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => {
-            fold_arguments(|a: &ParsedShell| go_package_command(a).iter().all(|p| check_go_package_version(p)), args)
-        }
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a: &ParsedShell| {
+                go_package_command(a)
+                    .iter()
+                    .all(|p| check_go_package_version(p))
+            },
+            args,
+        ),
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -76,7 +81,9 @@ fn has_version_symbol(package: &str) -> bool {
 
 /// Haskell `isTagsVersion`.
 fn is_tags_version(package: &str) -> bool {
-    ["latest", "none"].iter().any(|tag| package.ends_with(&format!("@{}", tag)))
+    ["latest", "none"]
+        .iter()
+        .any(|tag| package.ends_with(&format!("@{}", tag)))
 }
 
 /// Haskell `isLocalPath`.

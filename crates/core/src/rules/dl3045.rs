@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3045.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, modify, CheckFailure, DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
 use dlint_syntax::{BaseImage, CopyArgs, Instruction, Linenumber, TargetPath};
 use std::collections::BTreeMap;
@@ -20,7 +20,10 @@ enum Stage {
 /// not a `WORKDIR` has been set in a build stage.
 #[derive(Debug, Clone)]
 enum Acc {
-    Acc { current: Stage, workdir_set: BTreeMap<Stage, bool> },
+    Acc {
+        current: Stage,
+        workdir_set: BTreeMap<Stage, bool>,
+    },
     Empty,
 }
 
@@ -33,10 +36,22 @@ pub fn rule() -> Box<dyn Rule> {
     let check = move |line: Linenumber, st: State<Acc>, instr: &Instruction<_>| match instr {
         Instruction::From(from) => modify(|a| remember_stage(from, a), st),
         Instruction::Workdir(_) => modify(remember_workdir, st),
-        Instruction::Copy(CopyArgs { target_path: TargetPath { un_target_path: dest }, .. }, _) => {
+        Instruction::Copy(
+            CopyArgs {
+                target_path:
+                    TargetPath {
+                        un_target_path: dest,
+                    },
+                ..
+            },
+            _,
+        ) => {
             let d = dest.trim_matches(quote_predicate);
             let workdir_known = match &st.state {
-                Acc::Acc { current, workdir_set } => workdir_set.get(current) == Some(&true),
+                Acc::Acc {
+                    current,
+                    workdir_set,
+                } => workdir_set.get(current) == Some(&true),
                 Acc::Empty => false,
             };
             if workdir_known {
@@ -67,24 +82,43 @@ pub fn rule() -> Box<dyn Rule> {
 fn remember_stage(from: &BaseImage, acc: Acc) -> Acc {
     match (&from.alias, acc) {
         (Some(als), Acc::Empty) => Acc::Acc {
-            current: Stage::Stage { stage: als.un_image_alias.clone() },
+            current: Stage::Stage {
+                stage: als.un_image_alias.clone(),
+            },
             workdir_set: BTreeMap::new(),
         },
         (None, Acc::Empty) => Acc::Acc {
-            current: Stage::Stage { stage: from.image.image_name.clone() },
+            current: Stage::Stage {
+                stage: from.image.image_name.clone(),
+            },
             workdir_set: BTreeMap::new(),
         },
-        (alias, Acc::Acc { mut workdir_set, .. }) => {
+        (
+            alias,
+            Acc::Acc {
+                mut workdir_set, ..
+            },
+        ) => {
             let parent_value = workdir_set
-                .get(&Stage::Stage { stage: from.image.image_name.clone() })
+                .get(&Stage::Stage {
+                    stage: from.image.image_name.clone(),
+                })
                 .copied()
                 .unwrap_or(false);
             let name = match alias {
                 Some(als) => als.un_image_alias.clone(),
                 None => from.image.image_name.clone(),
             };
-            workdir_set.insert(Stage::Stage { stage: name.clone() }, parent_value);
-            Acc::Acc { current: Stage::Stage { stage: name }, workdir_set }
+            workdir_set.insert(
+                Stage::Stage {
+                    stage: name.clone(),
+                },
+                parent_value,
+            );
+            Acc::Acc {
+                current: Stage::Stage { stage: name },
+                workdir_set,
+            }
         }
     }
 }
@@ -94,11 +128,20 @@ fn remember_workdir(acc: Acc) -> Acc {
         Acc::Empty => {
             let mut m = BTreeMap::new();
             m.insert(Stage::None, true);
-            Acc::Acc { current: Stage::None, workdir_set: m }
+            Acc::Acc {
+                current: Stage::None,
+                workdir_set: m,
+            }
         }
-        Acc::Acc { current, mut workdir_set } => {
+        Acc::Acc {
+            current,
+            mut workdir_set,
+        } => {
             workdir_set.insert(current.clone(), true);
-            Acc::Acc { current, workdir_set }
+            Acc::Acc {
+                current,
+                workdir_set,
+            }
         }
     }
 }
@@ -160,7 +203,10 @@ mod tests {
     }
     #[test]
     fn ok_copy_relative_and_workdir_set_windows() {
-        both_not("DL3045", "FROM scratch\nWORKDIR c:\\system32\nCOPY bla.sh blubb.sh");
+        both_not(
+            "DL3045",
+            "FROM scratch\nWORKDIR c:\\system32\nCOPY bla.sh blubb.sh",
+        );
     }
     #[test]
     fn ok_copy_destination_env_var_1() {
@@ -188,7 +234,14 @@ mod tests {
     }
     #[test]
     fn not_ok_workdir_in_previous_stage_not_inherited() {
-        let df = ["FROM debian:buster as stage1", "WORKDIR /usr", "FROM debian:buster", "COPY foo bar", ""].join("\n");
+        let df = [
+            "FROM debian:buster as stage1",
+            "WORKDIR /usr",
+            "FROM debian:buster",
+            "COPY foo bar",
+            "",
+        ]
+        .join("\n");
         both("DL3045", &df);
     }
     #[test]
@@ -261,7 +314,13 @@ mod tests {
     }
     #[test]
     fn ok_workdir_set_both_within_onbuild() {
-        let df = ["FROM debian:buster", "ONBUILD WORKDIR /usr/local/lib", "ONBUILD COPY foo bar", ""].join("\n");
+        let df = [
+            "FROM debian:buster",
+            "ONBUILD WORKDIR /usr/local/lib",
+            "ONBUILD COPY foo bar",
+            "",
+        ]
+        .join("\n");
         both_not("DL3045", &df);
     }
     #[test]

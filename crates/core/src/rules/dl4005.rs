@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL4005.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
-use crate::shell::{cmd_has_args, no_commands, ParsedShell};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
+use crate::shell::{ParsedShell, cmd_has_args, no_commands};
 use dlint_syntax::{Instruction, RunArgs};
 
 /// Haskell `rule`.
@@ -43,7 +43,13 @@ mod tests {
 
     #[test]
     fn run_ln_with_multiple_acceptable_commands() {
-        rule_catches_not("DL4005", "RUN ln -s foo bar && unrelated && something_with /bin/sh");
-        on_build_rule_catches_not("DL4005", "RUN ln -s foo bar && unrelated && something_with /bin/sh");
+        rule_catches_not(
+            "DL4005",
+            "RUN ln -s foo bar && unrelated && something_with /bin/sh",
+        );
+        on_build_rule_catches_not(
+            "DL4005",
+            "RUN ln -s foo bar && unrelated && something_with /bin/sh",
+        );
     }
 }

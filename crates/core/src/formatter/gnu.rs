@@ -5,7 +5,7 @@
 //!
 //! See https://www.gnu.org/prep/standards/html_node/Errors.html for reference.
 
-use super::format::{error_position_pretty, severity_text, strip_newlines, FormatResult};
+use super::format::{FormatResult, error_position_pretty, severity_text, strip_newlines};
 use crate::rule::CheckFailure;
 use dlint_parser::ParseError;
 use std::io::Write;
@@ -30,7 +30,11 @@ fn print_errors(handle: &mut dyn Write, errors: &[ParseError]) -> std::io::Resul
     Ok(())
 }
 
-fn print_checks(handle: &mut dyn Write, filename: &str, checks: &[CheckFailure]) -> std::io::Result<()> {
+fn print_checks(
+    handle: &mut dyn Write,
+    filename: &str,
+    checks: &[CheckFailure],
+) -> std::io::Result<()> {
     for c in checks {
         writeln!(handle, "{}", format_check(filename, c))?;
     }
@@ -40,7 +44,11 @@ fn print_checks(handle: &mut dyn Write, filename: &str, checks: &[CheckFailure])
 fn format_error(err: &ParseError) -> String {
     format!(
         "hadolint:{}",
-        strip_newlines(&format!("{}: {}", error_position_pretty(err), err.first().text_pretty()))
+        strip_newlines(&format!(
+            "{}: {}",
+            error_position_pretty(err),
+            err.first().text_pretty()
+        ))
     )
 }
 
@@ -57,12 +65,17 @@ fn format_check(source: &str, f: &CheckFailure) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::rule::{CheckFailure, DLSeverity};
     use crate::formatter::format::OutputFormat;
+    use crate::rule::{CheckFailure, DLSeverity};
     use crate::testing::assert_formatter;
 
     fn cf(code: &str, severity: DLSeverity, message: &str, line: i32) -> CheckFailure {
-        CheckFailure { code: code.into(), severity, message: message.to_string(), line: line as _ }
+        CheckFailure {
+            code: code.into(),
+            severity,
+            message: message.to_string(),
+            line: line as _,
+        }
     }
 
     #[test]
@@ -73,7 +86,12 @@ mod tests {
     #[test]
     fn print_one_failed_rule() {
         let c = vec![cf("DL2001", DLSeverity::DLWarningC, "test", 1)];
-        assert_formatter(OutputFormat::Gnu, c, false, "hadolint:<string>:1: DL2001 warning: test\n");
+        assert_formatter(
+            OutputFormat::Gnu,
+            c,
+            false,
+            "hadolint:<string>:1: DL2001 warning: test\n",
+        );
     }
 
     #[test]

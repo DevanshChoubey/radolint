@@ -23,12 +23,22 @@ pub struct AnalisisResult {
 
 /// Haskell `run`.
 pub fn run(config: &Configuration, dockerfile: &[InstructionPos<String>]) -> Failures {
-    let AnalisisResult { ignored, stage_ignored, global_ignored, failed } = analyze(config, dockerfile);
+    let AnalisisResult {
+        ignored,
+        stage_ignored,
+        global_ignored,
+        failed,
+    } = analyze(config, dockerfile);
 
-    let ignores = |line: i64| -> BTreeSet<RuleCode> { ignored.get(&line).cloned().unwrap_or_default() };
+    let ignores =
+        |line: i64| -> BTreeSet<RuleCode> { ignored.get(&line).cloned().unwrap_or_default() };
     let stage_ignores = |line: i64| -> BTreeSet<RuleCode> {
         // `ls = 0 : [x | x <- keys, x < line]`; look up `last ls`.
-        let last = stage_ignored.keys().copied().filter(|x| *x < line).last().unwrap_or(0);
+        let last = stage_ignored
+            .keys()
+            .copied()
+            .rfind(|x| *x < line)
+            .unwrap_or(0);
         stage_ignored.get(&last).cloned().unwrap_or_default()
     };
     let should_keep = |f: &CheckFailure| -> bool {
@@ -36,7 +46,9 @@ pub fn run(config: &Configuration, dockerfile: &[InstructionPos<String>]) -> Fai
             return true;
         }
         let code = &f.code;
-        !(ignores(f.line).contains(code) || stage_ignores(f.line).contains(code) || global_ignored.contains(code))
+        !(ignores(f.line).contains(code)
+            || stage_ignores(f.line).contains(code)
+            || global_ignored.contains(code))
     };
     failed.into_iter().filter(|f| should_keep(f)).collect()
 }
@@ -50,7 +62,12 @@ pub fn analyze(config: &Configuration, dockerfile: &[InstructionPos<String>]) ->
     for ip in dockerfile {
         rule.step(&parse_shell(ip));
     }
-    AnalisisResult { ignored, stage_ignored, global_ignored, failed: rule.done() }
+    AnalisisResult {
+        ignored,
+        stage_ignored,
+        global_ignored,
+        failed: rule.done(),
+    }
 }
 
 /// Haskell `parseShell` (`fmap Shell.parseShell`).

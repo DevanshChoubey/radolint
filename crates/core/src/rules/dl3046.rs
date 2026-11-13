@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3046.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command};
 use dlint_syntax::*;
 
@@ -14,10 +14,13 @@ pub fn rule() -> Box<dyn Rule> {
 pub fn dl3046() -> Box<dyn Rule> {
     let code = "DL3046";
     let severity = DLSeverity::DLWarningC;
-    let message = "`useradd` without flag `-l` and high UID will result in excessively large Image.";
+    let message =
+        "`useradd` without flag `-l` and high UID will result in excessively large Image.";
 
     let check = |instr: &Instruction<_>| match instr {
-        Instruction::Run(RunArgs(args, _)) => fold_arguments(|a| shell::no_commands(forgot_flag_l, a), args),
+        Instruction::Run(RunArgs(args, _)) => {
+            fold_arguments(|a| shell::no_commands(forgot_flag_l, a), args)
+        }
         _ => true,
     };
 
@@ -34,7 +37,9 @@ pub fn dl3046() -> Box<dyn Rule> {
         shell::has_any_flag(&["u", "uid"], cmd)
     }
     fn has_long_uid(cmd: &Command) -> bool {
-        shell::get_flag_arg("u", cmd).iter().any(|a| a.chars().count() > 5)
+        shell::get_flag_arg("u", cmd)
+            .iter()
+            .any(|a| a.chars().count() > 5)
     }
 
     simple_rule(code, severity, message, check)

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Sarif.hs.
 
-use super::format::{error_message, error_position, FormatResult};
+use super::format::{FormatResult, error_message, error_position};
 use crate::meta::get_short_version;
 use crate::rule::{CheckFailure, DLSeverity};
 use dlint_parser::ParseError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Write;
 
 /// Haskell `data SarifFormat s e`.
@@ -20,7 +20,11 @@ impl SarifFormat<'_> {
         match self {
             SarifFormat::SarifCheck(filename, c) => {
                 let code = &c.code.un_rule_code;
-                let language = if code.starts_with("DL") { "dockerfile" } else { "sh" };
+                let language = if code.starts_with("DL") {
+                    "dockerfile"
+                } else {
+                    "sh"
+                };
                 json!({
                     "ruleId": code,
                     "level": to_severity(c.severity),
@@ -68,13 +72,20 @@ impl SarifFormat<'_> {
 /// Haskell `formatResult`.
 fn format_result(r: &FormatResult) -> Vec<SarifFormat<'_>> {
     let error_messages = r.errors.iter().map(SarifFormat::SarifError);
-    let check_messages = r.checks.iter().map(|c| SarifFormat::SarifCheck(&r.file_name, c));
+    let check_messages = r
+        .checks
+        .iter()
+        .map(|c| SarifFormat::SarifCheck(&r.file_name, c));
     error_messages.chain(check_messages).collect()
 }
 
 /// Haskell `hWrite`.
 pub fn h_write(handle: &mut dyn Write, results: &[FormatResult]) -> std::io::Result<()> {
-    let flattened: Vec<Value> = results.iter().flat_map(format_result).map(|f| f.to_json()).collect();
+    let flattened: Vec<Value> = results
+        .iter()
+        .flat_map(format_result)
+        .map(|f| f.to_json())
+        .collect();
     // aeson `encode` emits keys in alphabetical order; serde_json's Map (BTreeMap) does too.
     let doc = json!({
         "version": "2.1.0",
@@ -160,7 +171,12 @@ mod tests {
     }
 
     fn cf(code: &str, severity: DLSeverity, message: &str, line: u32) -> CheckFailure {
-        CheckFailure { code: code.into(), severity, message: message.to_string(), line: line as _ }
+        CheckFailure {
+            code: code.into(),
+            severity,
+            message: message.to_string(),
+            line: line as _,
+        }
     }
 
     #[test]

@@ -96,7 +96,9 @@ impl RuleCode {
 impl From<&str> for RuleCode {
     /// `instance IsString RuleCode`
     fn from(s: &str) -> Self {
-        RuleCode { un_rule_code: s.to_string() }
+        RuleCode {
+            un_rule_code: s.to_string(),
+        }
     }
 }
 impl From<String> for RuleCode {
@@ -209,22 +211,34 @@ pub fn add_fail<A>(failure: CheckFailure, mut state: State<A>) -> State<A> {
 
 /// Haskell `emptyState`.
 pub fn empty_state<A>(a: A) -> State<A> {
-    State { failures: vec![], state: a }
+    State {
+        failures: vec![],
+        state: a,
+    }
 }
 
 /// Haskell `simpleState`.
 pub fn simple_state() -> State<()> {
-    State { failures: vec![], state: () }
+    State {
+        failures: vec![],
+        state: (),
+    }
 }
 
 /// Haskell `modify`.
 pub fn modify<A>(f: impl FnOnce(A) -> A, s: State<A>) -> State<A> {
-    State { failures: s.failures, state: f(s.state) }
+    State {
+        failures: s.failures,
+        state: f(s.state),
+    }
 }
 
 /// Haskell `replaceWith`.
 pub fn replace_with<A>(new_state: A, s: State<A>) -> State<A> {
-    State { failures: s.failures, state: new_state }
+    State {
+        failures: s.failures,
+        state: new_state,
+    }
 }
 
 /// Haskell `type Rule args = Fold (InstructionPos args) Failures`.
@@ -272,7 +286,15 @@ pub fn simple_rule(
             if checker(instr) {
                 s
             } else {
-                add_fail(CheckFailure { code: code.clone(), severity, message: message.clone(), line }, s)
+                add_fail(
+                    CheckFailure {
+                        code: code.clone(),
+                        severity,
+                        message: message.clone(),
+                        line,
+                    },
+                    s,
+                )
             }
         },
         simple_state(),
@@ -293,7 +315,11 @@ pub fn very_custom_rule<A: 'static>(
     initial: State<A>,
     done: impl Fn(State<A>) -> Failures + 'static,
 ) -> Box<dyn Rule> {
-    Box::new(FoldRule { state: Some(initial), step: Box::new(step), done: Box::new(done) })
+    Box::new(FoldRule {
+        state: Some(initial),
+        step: Box::new(step),
+        done: Box::new(done),
+    })
 }
 
 struct Combined(Vec<Box<dyn Rule>>);
@@ -357,9 +383,10 @@ pub fn fold_arguments<A, B>(apply_rule: impl FnOnce(&A) -> B, args: &Arguments<A
 /// Haskell `aliasMustBe`: the check on the stage alias of a FROM; `true` otherwise.
 pub fn alias_must_be<A>(predicate: impl Fn(&str) -> bool, from_instr: &Instruction<A>) -> bool {
     match from_instr {
-        Instruction::From(BaseImage { alias: Some(ImageAlias { un_image_alias }), .. }) => {
-            predicate(un_image_alias)
-        }
+        Instruction::From(BaseImage {
+            alias: Some(ImageAlias { un_image_alias }),
+            ..
+        }) => predicate(un_image_alias),
         _ => true,
     }
 }
@@ -367,8 +394,8 @@ pub fn alias_must_be<A>(predicate: impl Fn(&str) -> bool, from_instr: &Instructi
 /// Haskell `archiveFileFormatExtensions`.
 pub fn archive_file_format_extensions() -> &'static [&'static str] {
     &[
-        ".tar", ".Z", ".bz2", ".gz", ".lz", ".lzma", ".tZ", ".tb2", ".tbz", ".tbz2", ".tgz", ".tlz",
-        ".tpz", ".txz", ".xz",
+        ".tar", ".Z", ".bz2", ".gz", ".lz", ".lzma", ".tZ", ".tb2", ".tbz", ".tbz2", ".tgz",
+        ".tlz", ".tpz", ".txz", ".xz",
     ]
 }
 
@@ -387,31 +414,50 @@ mod tests {
     use super::*;
 
     fn ip(i: Instruction<ParsedShell>, line: i64) -> InstructionPos<ParsedShell> {
-        InstructionPos { instruction: i, sourcename: "<string>".into(), line_number: line }
+        InstructionPos {
+            instruction: i,
+            sourcename: "<string>".into(),
+            line_number: line,
+        }
     }
 
     #[test]
     fn simple_rule_and_combine_order() {
-        let a = simple_rule("DL0001", DLSeverity::DLInfoC, "a", |i| !matches!(i, Instruction::User(_)));
+        let a = simple_rule("DL0001", DLSeverity::DLInfoC, "a", |i| {
+            !matches!(i, Instruction::User(_))
+        });
         let b = simple_rule("DL0002", DLSeverity::DLInfoC, "b", |_| false);
         let mut r = combine(a, b);
         r.step(&ip(Instruction::User("x".into()), 1));
         r.step(&ip(Instruction::User("y".into()), 2));
-        let codes: Vec<(String, i64)> =
-            r.done().into_iter().map(|f| (f.code.un_rule_code, f.line)).collect();
+        let codes: Vec<(String, i64)> = r
+            .done()
+            .into_iter()
+            .map(|f| (f.code.un_rule_code, f.line))
+            .collect();
         // rule A's failures first, then rule B's (Fold `<>` concatenates per rule)
         assert_eq!(
             codes,
-            vec![("DL0001".into(), 1), ("DL0001".into(), 2), ("DL0002".into(), 1), ("DL0002".into(), 2)]
+            vec![
+                ("DL0001".into(), 1),
+                ("DL0001".into(), 2),
+                ("DL0002".into(), 1),
+                ("DL0002".into(), 2)
+            ]
         );
     }
 
     #[test]
     fn onbuild_unwraps() {
-        let r = simple_rule("DL0001", DLSeverity::DLInfoC, "a", |i| !matches!(i, Instruction::User(_)));
+        let r = simple_rule("DL0001", DLSeverity::DLInfoC, "a", |i| {
+            !matches!(i, Instruction::User(_))
+        });
         let mut r = onbuild(r);
         r.step(&ip(Instruction::User("x".into()), 1));
-        r.step(&ip(Instruction::OnBuild(Box::new(Instruction::User("x".into()))), 2));
+        r.step(&ip(
+            Instruction::OnBuild(Box::new(Instruction::User("x".into()))),
+            2,
+        ));
         assert_eq!(r.done().len(), 1);
     }
 

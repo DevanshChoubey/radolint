@@ -58,8 +58,14 @@ pub fn default_shell_opts() -> ShellOpts {
     ShellOpts {
         shell_name: "/bin/sh -c".to_string(),
         env_vars: [
-            "HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "FTP_PROXY", "ftp_proxy",
-            "NO_PROXY", "no_proxy",
+            "HTTP_PROXY",
+            "http_proxy",
+            "HTTPS_PROXY",
+            "https_proxy",
+            "FTP_PROXY",
+            "ftp_proxy",
+            "NO_PROXY",
+            "no_proxy",
         ]
         .iter()
         .map(|s| s.to_string())
@@ -71,18 +77,27 @@ pub fn default_shell_opts() -> ShellOpts {
 pub fn add_vars(vars: &[String], opts: ShellOpts) -> ShellOpts {
     let mut env_vars = opts.env_vars;
     env_vars.extend(vars.iter().cloned());
-    ShellOpts { shell_name: opts.shell_name, env_vars }
+    ShellOpts {
+        shell_name: opts.shell_name,
+        env_vars,
+    }
 }
 
 /// Haskell `setShell`.
 pub fn set_shell(s: &str, opts: ShellOpts) -> ShellOpts {
-    ShellOpts { shell_name: s.to_string(), env_vars: opts.env_vars }
+    ShellOpts {
+        shell_name: s.to_string(),
+        env_vars: opts.env_vars,
+    }
 }
 
 /// Haskell `shellcheck`: run ShellCheck over the script (mocked system interface, shebang from
 /// the shell name, `export VAR=1` lines for the env vars, excluding 2187/1090/1091, min severity style).
 pub fn shellcheck(opts: &ShellOpts, script: &ParsedShell) -> Vec<PositionedComment> {
-    let ShellOpts { shell_name: sh, env_vars: env } = opts;
+    let ShellOpts {
+        shell_name: sh,
+        env_vars: env,
+    } = opts;
     let txt = &script.original;
     if non_posix_shells().iter().any(|n| sh.contains(n)) || has_unsupported_shebang(txt) {
         return vec![]; // Do no run for non-posix shells i.e. powershell, cmd.exe
@@ -120,7 +135,11 @@ pub fn non_posix_shells() -> &'static [&'static str] {
 pub fn has_unsupported_shebang(script: &str) -> bool {
     script.starts_with("#!")
         && ![
-            "#!/bin/sh", "#!/bin/bash", "#!/bin/ksh", "#!/usr/bin/env sh", "#!/usr/bin/env bash",
+            "#!/bin/sh",
+            "#!/bin/bash",
+            "#!/bin/ksh",
+            "#!/usr/bin/env sh",
+            "#!/usr/bin/env bash",
             "#!/usr/bin/env ksh",
         ]
         .iter()
@@ -140,11 +159,21 @@ pub fn parse_shell(txt: &str) -> ParsedShell {
         let n = astlib::get_command_name(&parsed_result.ast, token)?;
         let all_args = extract_all_args(&parsed_result.ast, token);
         let flags = get_all_flags(&all_args);
-        Some(Command { name: n, arguments: all_args, flags })
+        Some(Command {
+            name: n,
+            arguments: all_args,
+            flags,
+        })
     };
-    let commands: Vec<Command> =
-        find_commands_in_result(&parsed_result).into_iter().filter_map(extract_names).collect();
-    ParsedShell { original: txt.to_string(), parsed: parsed_result, present_commands: commands }
+    let commands: Vec<Command> = find_commands_in_result(&parsed_result)
+        .into_iter()
+        .filter_map(extract_names)
+        .collect();
+    ParsedShell {
+        original: txt.to_string(),
+        parsed: parsed_result,
+        present_commands: commands,
+    }
 }
 
 /// Haskell `findCommandsInResult` (tokens that are commands, via `ASTLib.getCommand`).
@@ -153,7 +182,10 @@ pub fn find_commands_in_result(res: &ParseResult) -> Vec<Id> {
 }
 
 /// Haskell `extractTokensWith` (pre-order walk of the root, as `doAnalysis`).
-pub fn extract_tokens_with<A>(extractor: &dyn Fn(&Ast, Id) -> Option<A>, res: &ParseResult) -> Vec<A> {
+pub fn extract_tokens_with<A>(
+    extractor: &dyn Fn(&Ast, Id) -> Option<A>,
+    res: &ParseResult,
+) -> Vec<A> {
     match res.root {
         None => vec![],
         Some(script) => {
@@ -208,7 +240,11 @@ pub fn find_command_index(check: impl Fn(&Command) -> bool, script: &ParsedShell
 
 /// Haskell `findCommandNames`.
 pub fn find_command_names(script: &ParsedShell) -> Vec<String> {
-    script.present_commands.iter().map(|c| c.name.clone()).collect()
+    script
+        .present_commands
+        .iter()
+        .map(|c| c.name.clone())
+        .collect()
 }
 
 /// Haskell `cmdHasArgs`.
@@ -221,7 +257,9 @@ pub fn cmds_have_args(expected_names: &[&str], expected_args: &[&str], cmd: &Com
     if !expected_names.contains(&cmd.name.as_str()) {
         return false;
     }
-    cmd.arguments.iter().any(|p| expected_args.contains(&p.arg.as_str()))
+    cmd.arguments
+        .iter()
+        .any(|p| expected_args.contains(&p.arg.as_str()))
 }
 
 /// Haskell `cmdHasPrefixArg`.
@@ -229,7 +267,9 @@ pub fn cmd_has_prefix_arg(expected_name: &str, expected_arg: &str, cmd: &Command
     if expected_name != cmd.name {
         return false;
     }
-    cmd.arguments.iter().any(|p| p.arg.starts_with(expected_arg))
+    cmd.arguments
+        .iter()
+        .any(|p| p.arg.starts_with(expected_arg))
 }
 
 /// Haskell `extractAllArgs`: the arguments of a `T_SimpleCommand` token (empty for other tokens).
@@ -237,7 +277,10 @@ pub fn extract_all_args(ast: &Ast, token: Id) -> Vec<CmdPart> {
     match ast.get(token) {
         Token::T_SimpleCommand(_, words) if !words.is_empty() => words[1..]
             .iter()
-            .map(|&t| CmdPart { arg: simplify(ast, t).concat(), part_id: t.0 as i64 })
+            .map(|&t| CmdPart {
+                arg: simplify(ast, t).concat(),
+                part_id: t.0 as i64,
+            })
             .collect(),
         _ => vec![],
     }
@@ -259,7 +302,7 @@ pub fn simplify(ast: &Ast, token: Id) -> Vec<String> {
         Token::T_Literal(x) => vec![x.clone()],
         Token::T_ParamSubSpecialChar(x) => vec![x.clone()],
         Token::T_SimpleCommand(_, wds) => cm(wds),
-        Token::T_Redirecting(_, foo) => simplify(ast, *foo),
+        Token::T_Redirecting(_, inner) => simplify(ast, *inner),
         Token::T_DollarSingleQuoted(s) => vec![s.clone()],
         Token::T_Annotation(_, s) => simplify(ast, *s),
         Token::TA_Sequence(l) if l.len() == 1 => match ast.get(l[0]) {
@@ -283,10 +326,16 @@ pub fn get_all_flags(args: &[CmdPart]) -> Vec<CmdPart> {
             continue;
         } else if let Some(rest) = arg.strip_prefix("--") {
             let name: String = rest.chars().take_while(|c| *c != '=').collect();
-            out.push(CmdPart { arg: name, part_id: *part_id });
+            out.push(CmdPart {
+                arg: name,
+                part_id: *part_id,
+            });
         } else if let Some(rest) = arg.strip_prefix('-') {
             for ch in rest.chars() {
-                out.push(CmdPart { arg: ch.to_string(), part_id: *part_id });
+                out.push(CmdPart {
+                    arg: ch.to_string(),
+                    part_id: *part_id,
+                });
             }
         }
     }
@@ -296,7 +345,11 @@ pub fn get_all_flags(args: &[CmdPart]) -> Vec<CmdPart> {
 /// Haskell `getArgsNoFlags`.
 pub fn get_args_no_flags(cmd: &Command) -> Vec<String> {
     let flag_ids: Vec<i64> = cmd.flags.iter().map(|f| f.part_id).collect();
-    cmd.arguments.iter().filter(|a| !flag_ids.contains(&a.part_id)).map(|a| a.arg.clone()).collect()
+    cmd.arguments
+        .iter()
+        .filter(|a| !flag_ids.contains(&a.part_id))
+        .map(|a| a.arg.clone())
+        .collect()
 }
 
 /// Haskell `hasFlag`.
@@ -321,8 +374,11 @@ pub fn has_arg(arg: &str, cmd: &Command) -> bool {
 
 /// Haskell `dropFlagArg`.
 pub fn drop_flag_arg(flags_to_drop: &[&str], cmd: &Command) -> Command {
-    let has_inline_value =
-        |f_id: i64| cmd.arguments.iter().any(|a| a.part_id == f_id && a.arg.contains('='));
+    let has_inline_value = |f_id: i64| {
+        cmd.arguments
+            .iter()
+            .any(|a| a.part_id == f_id && a.arg.contains('='))
+    };
     let ids_to_drop: BTreeSet<i64> = cmd
         .flags
         .iter()
@@ -331,7 +387,12 @@ pub fn drop_flag_arg(flags_to_drop: &[&str], cmd: &Command) -> Command {
         .collect();
     Command {
         name: cmd.name.clone(),
-        arguments: cmd.arguments.iter().filter(|a| !ids_to_drop.contains(&a.part_id)).cloned().collect(),
+        arguments: cmd
+            .arguments
+            .iter()
+            .filter(|a| !ids_to_drop.contains(&a.part_id))
+            .cloned()
+            .collect(),
         flags: cmd.flags.clone(),
     }
 }
@@ -344,12 +405,20 @@ pub fn get_flag_arg(flag: &str, cmd: &Command) -> Vec<String> {
         .filter(|f| f.arg == flag)
         .map(|f| get_value_id(f.part_id, &cmd.arguments))
         .collect();
-    cmd.arguments.iter().filter(|a| ids.contains(&a.part_id)).map(|a| a.arg.clone()).collect()
+    cmd.arguments
+        .iter()
+        .filter(|a| ids.contains(&a.part_id))
+        .map(|a| a.arg.clone())
+        .collect()
 }
 
 /// Haskell `getValueId` (`maxBound :: Int` when there is none).
 pub fn get_value_id(f_id: i64, flags: &[CmdPart]) -> i64 {
-    flags.iter().map(|p| p.part_id).filter(|i| *i > f_id).fold(i64::MAX, i64::min)
+    flags
+        .iter()
+        .map(|p| p.part_id)
+        .filter(|i| *i > f_id)
+        .fold(i64::MAX, i64::min)
 }
 
 /// Haskell `usingProgram`: does the Run instruction call the program?
@@ -360,8 +429,12 @@ pub fn using_program(prog: &str, args: &ParsedShell) -> bool {
 /// Haskell `isPipInstall`.
 pub fn is_pip_install(cmd: &Command) -> bool {
     let args = get_args(cmd);
-    let contains = |needle: &[&str]| args.windows(needle.len()).any(|w| w.iter().zip(needle).all(|(a, b)| a == b));
-    let std = cmd.name.starts_with("pip") && !cmd.name.starts_with("pipenv") && contains(&["install"]);
+    let contains = |needle: &[&str]| {
+        args.windows(needle.len())
+            .any(|w| w.iter().zip(needle).all(|(a, b)| a == b))
+    };
+    let std =
+        cmd.name.starts_with("pip") && !cmd.name.starts_with("pipenv") && contains(&["install"]);
     let py = cmd.name.starts_with("python") && contains(&["-m", "pip", "install"]);
     std || py
 }
@@ -371,19 +444,38 @@ mod tests {
     use super::*;
 
     fn cp(a: &str, i: i64) -> CmdPart {
-        CmdPart { arg: a.to_string(), part_id: i }
+        CmdPart {
+            arg: a.to_string(),
+            part_id: i,
+        }
     }
     fn cmd(name: &str, args: Vec<CmdPart>, flags: Vec<CmdPart>) -> Command {
-        Command { name: name.to_string(), arguments: args, flags }
+        Command {
+            name: name.to_string(),
+            arguments: args,
+            flags,
+        }
     }
 
     #[test]
     fn get_flag_args() {
-        let c = cmd("useradd", vec![cp("12345", 2), cp("67890", 4), cp("luser", 5)], vec![cp("u", 1), cp("u", 3)]);
+        let c = cmd(
+            "useradd",
+            vec![cp("12345", 2), cp("67890", 4), cp("luser", 5)],
+            vec![cp("u", 1), cp("u", 3)],
+        );
         assert_eq!(get_flag_arg("u", &c), vec!["12345", "67890"]);
-        let c = cmd("useradd", vec![cp("12345", 2), cp("luser", 3)], vec![cp("u", 1)]);
+        let c = cmd(
+            "useradd",
+            vec![cp("12345", 2), cp("luser", 3)],
+            vec![cp("u", 1)],
+        );
         assert_eq!(get_flag_arg("u", &c), vec!["12345"]);
-        let c = cmd("useradd", vec![cp("12345", 2), cp("luser", 3)], vec![cp("u", 1)]);
+        let c = cmd(
+            "useradd",
+            vec![cp("12345", 2), cp("luser", 3)],
+            vec![cp("u", 1)],
+        );
         assert_eq!(get_flag_arg("f", &c), Vec::<String>::new());
     }
 
@@ -397,8 +489,16 @@ mod tests {
 
     #[test]
     fn drop_flag_arg_spec() {
-        let c = cmd("npm", vec![cp("verbose", 2), cp("install", 3), cp("bla@1.0.0", 4)], vec![cp("loglevel", 1)]);
-        let res = cmd("npm", vec![cp("install", 3), cp("bla@1.0.0", 4)], vec![cp("loglevel", 1)]);
+        let c = cmd(
+            "npm",
+            vec![cp("verbose", 2), cp("install", 3), cp("bla@1.0.0", 4)],
+            vec![cp("loglevel", 1)],
+        );
+        let res = cmd(
+            "npm",
+            vec![cp("install", 3), cp("bla@1.0.0", 4)],
+            vec![cp("loglevel", 1)],
+        );
         assert_eq!(drop_flag_arg(&["loglevel"], &c), res);
     }
 
@@ -406,7 +506,10 @@ mod tests {
     fn drop_flag_arg_keeps_the_next_argument_when_the_flag_value_is_inline() {
         let cmds = parse_shell("npm --loglevel=info install bla@1.0.0").present_commands;
         assert_ne!(cmds, vec![]);
-        let dropped: Vec<Command> = cmds.iter().map(|c| drop_flag_arg(&["loglevel"], c)).collect();
+        let dropped: Vec<Command> = cmds
+            .iter()
+            .map(|c| drop_flag_arg(&["loglevel"], c))
+            .collect();
         assert_eq!(dropped, cmds);
     }
 }

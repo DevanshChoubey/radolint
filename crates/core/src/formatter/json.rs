@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Json.hs.
 
-use super::format::{error_message, severity_text, FormatResult};
+use super::format::{FormatResult, error_message, severity_text};
 use crate::rule::DLSeverity;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Write;
 
 /// Render the flattened JSON array (aeson `encode`: compact, keys in alphabetical order,

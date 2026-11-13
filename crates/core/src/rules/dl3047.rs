@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3047.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, Command};
 use dlint_syntax::*;
 
@@ -18,7 +18,9 @@ pub fn dl3047() -> Box<dyn Rule> {
                    Or consider using `-q` or `-nv` (shorthands for `--quiet` or `--no-verbose`).";
 
     let check = |instr: &Instruction<_>| match instr {
-        Instruction::Run(RunArgs(args, _)) => fold_arguments(|a| shell::no_commands(forgot_progress, a), args),
+        Instruction::Run(RunArgs(args, _)) => {
+            fold_arguments(|a| shell::no_commands(forgot_progress, a), args)
+        }
         _ => true,
     };
     simple_rule(code, severity, message, check)
@@ -37,7 +39,10 @@ fn has_progress_option(cmd: &Command) -> bool {
 }
 
 fn has_special_flags(cmd: &Command) -> bool {
-    has_quiet_flag(cmd) || has_output_flag(cmd) || has_append_output_flag(cmd) || has_no_verbose_flag(cmd)
+    has_quiet_flag(cmd)
+        || has_output_flag(cmd)
+        || has_append_output_flag(cmd)
+        || has_no_verbose_flag(cmd)
 }
 
 fn has_quiet_flag(cmd: &Command) -> bool {

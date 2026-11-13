@@ -12,15 +12,15 @@ pub fn rule() -> Box<dyn Rule> {
     let message = "Use arguments JSON notation for CMD and ENTRYPOINT arguments";
 
     let check = |instr: &Instruction<ParsedShell>| -> bool {
-        match instr {
-            Instruction::Cmd(Arguments::ArgumentsText(_)) => false,
-            Instruction::Entrypoint(Arguments::ArgumentsText(_)) => false,
-            Instruction::Healthcheck(Check::Check(CheckArgs {
-                check_command: Arguments::ArgumentsText(_),
-                ..
-            })) => false,
-            _ => true,
-        }
+        !matches!(
+            instr,
+            Instruction::Cmd(Arguments::ArgumentsText(_))
+                | Instruction::Entrypoint(Arguments::ArgumentsText(_))
+                | Instruction::Healthcheck(Check::Check(CheckArgs {
+                    check_command: Arguments::ArgumentsText(_),
+                    ..
+                }))
+        )
     };
     simple_rule(code, severity, message, check)
 }
@@ -35,7 +35,10 @@ mod tests {
     }
     #[test]
     fn dont_warn_on_entrypoint_json_notation() {
-        rule_catches_not("DL3025", "FROM scratch as build\nENTRYPOINT [\"foo\", \"bar\"]\n");
+        rule_catches_not(
+            "DL3025",
+            "FROM scratch as build\nENTRYPOINT [\"foo\", \"bar\"]\n",
+        );
     }
     #[test]
     fn warn_on_cmd() {

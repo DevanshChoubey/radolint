@@ -4,10 +4,9 @@
 //! Parsers are `fn(&mut Parser) -> PResult<T>`; `?esc` is `p.esc`. See `combinator.rs`.
 
 #![allow(unused_variables)]
-use dlint_syntax::*;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-
+use dlint_syntax::*;
 
 /// Haskell `unquotedString` (Pairs.hs).
 pub fn unquoted_string(p: &mut Parser, accept_condition: &dyn Fn(char) -> bool) -> PResult<String> {
@@ -16,8 +15,14 @@ pub fn unquoted_string(p: &mut Parser, accept_condition: &dyn Fn(char) -> bool) 
     // checkFaults
     match str_.chars().next() {
         None => p.fail("a non empty string"),
-        Some('\'') => custom_error(p, DockerfileError::QuoteError("single".to_string(), str_.clone())),
-        Some('"') => custom_error(p, DockerfileError::QuoteError("double".to_string(), str_.clone())),
+        Some('\'') => custom_error(
+            p,
+            DockerfileError::QuoteError("single".to_string(), str_.clone()),
+        ),
+        Some('"') => custom_error(
+            p,
+            DockerfileError::QuoteError("double".to_string(), str_.clone()),
+        ),
         Some(_) => Ok(str_),
     }
 }
@@ -26,9 +31,21 @@ pub fn unquoted_string(p: &mut Parser, accept_condition: &dyn Fn(char) -> bool) 
 pub fn single_value(p: &mut Parser, accept_condition: &dyn Fn(char) -> bool) -> PResult<String> {
     let variants = p.many(|s| {
         s.choice(&[
-            &|s| s.label("a string inside double quotes", |s| double_quoted_string_escaped(s)),
-            &|s| s.label("a string inside single quotes", |s| single_quoted_string_escaped(s)),
-            &|s| s.label("a string with no quotes", |s| unquoted_string(s, accept_condition)),
+            &|s| {
+                s.label("a string inside double quotes", |s| {
+                    double_quoted_string_escaped(s)
+                })
+            },
+            &|s| {
+                s.label("a string inside single quotes", |s| {
+                    single_quoted_string_escaped(s)
+                })
+            },
+            &|s| {
+                s.label("a string with no quotes", |s| {
+                    unquoted_string(s, accept_condition)
+                })
+            },
         ])
     })?;
     Ok(variants.concat())
@@ -55,8 +72,8 @@ pub fn pair(p: &mut Parser) -> PResult<(String, String)> {
 /// Haskell `pairs` (Pairs.hs).
 pub fn pairs(p: &mut Parser) -> PResult<Pairs> {
     p.sep_end_by1(
-        |s| s.label("a key value pair (key=value)", |s| pair(s)),
-        |s| required_whitespace(s),
+        |s| s.label("a key value pair (key=value)", pair),
+        required_whitespace,
     )
 }
 
@@ -80,10 +97,10 @@ mod tests {
     use crate::combinator::run_parser;
 
     fn env(s: &str) -> Instruction<String> {
-        run_parser(s, "<string>", '\\', |p| parse_env(p)).unwrap()
+        run_parser(s, "<string>", '\\', parse_env).unwrap()
     }
     fn label(s: &str) -> Instruction<String> {
-        run_parser(s, "<string>", '\\', |p| parse_label(p)).unwrap()
+        run_parser(s, "<string>", '\\', parse_label).unwrap()
     }
     fn kv(a: &str, b: &str) -> (String, String) {
         (a.to_string(), b.to_string())
@@ -91,15 +108,24 @@ mod tests {
 
     #[test]
     fn parse_label_test() {
-        assert_eq!(label("LABEL foo=bar"), Instruction::Label(vec![kv("foo", "bar")]));
+        assert_eq!(
+            label("LABEL foo=bar"),
+            Instruction::Label(vec![kv("foo", "bar")])
+        );
     }
     #[test]
     fn parse_space_separated_label() {
-        assert_eq!(label("LABEL foo bar baz"), Instruction::Label(vec![kv("foo", "bar baz")]));
+        assert_eq!(
+            label("LABEL foo bar baz"),
+            Instruction::Label(vec![kv("foo", "bar baz")])
+        );
     }
     #[test]
     fn parse_quoted_labels() {
-        assert_eq!(label("LABEL \"foo bar\"=baz"), Instruction::Label(vec![kv("foo bar", "baz")]));
+        assert_eq!(
+            label("LABEL \"foo bar\"=baz"),
+            Instruction::Label(vec![kv("foo bar", "baz")])
+        );
     }
     #[test]
     fn parses_unquoted_pair() {
@@ -118,7 +144,10 @@ mod tests {
     }
     #[test]
     fn parse_quoted_value_pair() {
-        assert_eq!(env("ENV foo=\"bar\""), Instruction::Env(vec![kv("foo", "bar")]));
+        assert_eq!(
+            env("ENV foo=\"bar\""),
+            Instruction::Env(vec![kv("foo", "bar")])
+        );
     }
     #[test]
     fn parse_multiple_unquoted_pairs() {

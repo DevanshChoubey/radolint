@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Codacy.hs.
 
-use super::format::{error_bundle_pretty, FormatResult};
-use serde_json::{json, Value};
+use super::format::{FormatResult, error_bundle_pretty};
+use serde_json::{Value, json};
 use std::io::Write;
 
 /// Haskell `Issue` (rendered by its `ToJSON` instance).
@@ -82,7 +82,9 @@ mod tests {
             file_name: "f".to_string(),
             errors: vec![],
             checks: vec![CheckFailure {
-                code: RuleCode { un_rule_code: "DL3000".into() },
+                code: RuleCode {
+                    un_rule_code: "DL3000".into(),
+                },
                 severity: DLSeverity::DLErrorC,
                 message: "m".into(),
                 line: 3,

@@ -35,13 +35,18 @@ impl DockerfileError {
             // Haskell `show [Text]`: ["a","b"]
             MissingArgument(f) => format!(
                 "missing required argument(s) for mount flag: [{}]",
-                f.iter().map(|s| format!("{s:?}")).collect::<Vec<_>>().join(",")
+                f.iter()
+                    .map(|s| format!("{s:?}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
             ),
             DuplicateArgument(f) => format!("duplicate argument for mount flag: {f}"),
             UnexpectedArgument(a, b) => {
                 format!("unexpected argument '{a}' for mount of type '{b}'")
             }
-            QuoteError(t, s) => format!("unexpected end of {t} quoted string {s} (unmatched quote)"),
+            QuoteError(t, s) => {
+                format!("unexpected end of {t} quoted string {s} (unmatched quote)")
+            }
         }
     }
 }
@@ -96,7 +101,8 @@ pub fn eol(p: &mut Parser) -> PResult<()> {
 }
 /// Haskell `reserved`.
 pub fn reserved(p: &mut Parser, name: &str) -> PResult<()> {
-    p.label(name, |s| lexeme(s, |s| case_insensitive_string(s, name))).map(|_| ())
+    p.label(name, |s| lexeme(s, |s| case_insensitive_string(s, name)))
+        .map(|_| ())
 }
 /// Haskell `natural`.
 pub fn natural(p: &mut Parser) -> PResult<u128> {
@@ -145,7 +151,11 @@ pub fn quoted_string(p: &mut Parser, c: char) -> PResult<String> {
 }
 /// Haskell `quotedStringEscaped`.
 pub fn quoted_string_escaped(p: &mut Parser, q: char) -> PResult<String> {
-    p.between(|s| s.char(q), |s| s.char(q), |s| string_with_escaped(s, &[q], None))
+    p.between(
+        |s| s.char(q),
+        |s| s.char(q),
+        |s| string_with_escaped(s, &[q], None),
+    )
 }
 /// Haskell `brackets`.
 pub fn brackets<T>(p: &mut Parser, inner: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {
@@ -204,7 +214,10 @@ pub fn heredoc_content(p: &mut Parser, marker: &str) -> PResult<String> {
     let delimiter = |s: &mut Parser| s.alt(|s| s.try_(del_eol), del_eof);
     let empty_heredoc = p.observing(delimiter)?;
     let doc: String = match empty_heredoc {
-        Err(_) => p.many_till(|s| s.any_single(), termination)?.into_iter().collect(),
+        Err(_) => p
+            .many_till(|s| s.any_single(), termination)?
+            .into_iter()
+            .collect(),
         Ok(_) => String::new(),
     };
     Ok(doc.trim().to_string())
@@ -217,10 +230,9 @@ pub fn heredoc(p: &mut Parser) -> PResult<String> {
 /// Haskell `untilHeredoc`.
 pub fn until_heredoc(p: &mut Parser) -> PResult<String> {
     let chars = |s: &mut Parser| -> PResult<String> {
-        s.choice(&[
-            &|s| escaped_line_breaks(s).map(cast_to_space),
-            &|s| s.any_single_but('\n').map(|c| c.to_string()),
-        ])
+        s.choice(&[&|s| escaped_line_breaks(s).map(cast_to_space), &|s| {
+            s.any_single_but('\n').map(|c| c.to_string())
+        }])
     };
     let txt = p.many_till(chars, heredoc)?;
     Ok(txt.concat().trim().to_string())
@@ -235,7 +247,9 @@ pub fn only_spaces1(p: &mut Parser) -> PResult<String> {
 }
 /// Haskell `onlyWhitespaces`.
 pub fn only_whitespaces(p: &mut Parser) -> PResult<String> {
-    p.take_while_p(Some("whitespaces"), |c| c == ' ' || c == '\t' || c == '\n' || c == '\r')
+    p.take_while_p(Some("whitespaces"), |c| {
+        c == ' ' || c == '\t' || c == '\n' || c == '\r'
+    })
 }
 /// Haskell `escapedLineBreaks`.
 pub fn escaped_line_breaks(p: &mut Parser) -> PResult<FoundWhitespace> {
@@ -259,7 +273,9 @@ pub fn escaped_line_breaks(p: &mut Parser) -> PResult<FoundWhitespace> {
             |_| Ok(FoundWhitespace::MissingWhitespace),
         )
     })?;
-    Ok(breaks.into_iter().fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
+    Ok(breaks
+        .into_iter()
+        .fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
 }
 /// Haskell `escapedLineBreaks'`.
 pub fn escaped_line_breaks_(p: &mut Parser) -> PResult<String> {
@@ -288,7 +304,9 @@ pub fn found_whitespace(p: &mut Parser) -> PResult<FoundWhitespace> {
             &|s| escaped_line_breaks(s),
         ])
     })?;
-    Ok(found.into_iter().fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
+    Ok(found
+        .into_iter()
+        .fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
 }
 /// Haskell `whitespace`.
 pub fn whitespace(p: &mut Parser) -> PResult<()> {
@@ -352,18 +370,16 @@ pub fn string_with_escaped(
         Some(f) => f(c),
         None => true,
     };
-    let quote_parser = |s: &mut Parser| -> PResult<String> { char_choice(s, quote_chars).map(|c| c.to_string()) };
+    let quote_parser =
+        |s: &mut Parser| -> PResult<String> { char_choice(s, quote_chars).map(|c| c.to_string()) };
     let inner = |s: &mut Parser| -> PResult<String> {
         let esc = s.esc;
         let v = s.some(|s| {
-            s.choice(&[
-                &|s| escaped_line_breaks(s).map(cast_to_space),
-                &|s| {
-                    s.take_while1_p(None, |c| {
-                        c != esc && c != '\n' && !quote_chars.contains(&c) && accept_condition(c)
-                    })
-                },
-            ])
+            s.choice(&[&|s| escaped_line_breaks(s).map(cast_to_space), &|s| {
+                s.take_while1_p(None, |c| {
+                    c != esc && c != '\n' && !quote_chars.contains(&c) && accept_condition(c)
+                })
+            }])
         })?;
         Ok(v.concat())
     };
@@ -412,7 +428,11 @@ pub fn any_unless(p: &mut Parser, predicate: &dyn Fn(char) -> bool) -> PResult<S
     p.alt(|s| some_unless(s, "", predicate), |_| Ok(String::new()))
 }
 /// Haskell `someUnless`.
-pub fn some_unless(p: &mut Parser, name: &str, predicate: &dyn Fn(char) -> bool) -> PResult<String> {
+pub fn some_unless(
+    p: &mut Parser,
+    name: &str,
+    predicate: &dyn Fn(char) -> bool,
+) -> PResult<String> {
     let res = p.many(|s| {
         let esc = s.esc;
         s.choice(&[
@@ -446,8 +466,14 @@ mod tests {
 
     #[test]
     fn quoted_strings() {
-        assert_eq!(run_parser("\"a b\"", "", '\\', double_quoted_string).unwrap(), "a b");
-        assert_eq!(run_parser("'a\\'b'", "", '\\', single_quoted_string_escaped).unwrap(), "a'b");
+        assert_eq!(
+            run_parser("\"a b\"", "", '\\', double_quoted_string).unwrap(),
+            "a b"
+        );
+        assert_eq!(
+            run_parser("'a\\'b'", "", '\\', single_quoted_string_escaped).unwrap(),
+            "a'b"
+        );
     }
 
     #[test]

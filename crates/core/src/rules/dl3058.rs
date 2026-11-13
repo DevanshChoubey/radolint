@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3058.hs.
 
 use crate::rule::LabelSchema;
-use crate::rule::{mconcat, simple_rule, DLSeverity, LabelName, LabelType, Rule};
+use crate::rule::{DLSeverity, LabelName, LabelType, Rule, mconcat, simple_rule};
 use dlint_syntax::Instruction;
 
 /// Haskell `rule`.
@@ -21,7 +21,10 @@ pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {
 fn label_is_not_email_rule(label: LabelName) -> Box<dyn Rule> {
     let code = "DL3058";
     let severity = DLSeverity::DLWarningC;
-    let message = format!("Label `{}` is not a valid email format - must conform to RFC5322.", label);
+    let message = format!(
+        "Label `{}` is not a valid email format - must conform to RFC5322.",
+        label
+    );
     let check = move |instr: &Instruction<_>| match instr {
         Instruction::Label(ls) => get_bad_emailformat_labels(&label, ls).is_empty(),
         _ => true,
@@ -46,7 +49,9 @@ fn is_atext(c: u8) -> bool {
 }
 
 fn is_dot_atom(s: &[u8]) -> bool {
-    !s.is_empty() && s.split(|&c| c == b'.').all(|part| !part.is_empty() && part.iter().all(|&c| is_atext(c)))
+    !s.is_empty()
+        && s.split(|&c| c == b'.')
+            .all(|part| !part.is_empty() && part.iter().all(|&c| is_atext(c)))
 }
 
 fn is_quoted_string(s: &[u8]) -> bool {
@@ -58,13 +63,22 @@ fn is_quoted_string(s: &[u8]) -> bool {
     while i < inner.len() {
         let c = inner[i];
         if c == b'\\' {
-            if i + 1 >= inner.len() || !(inner[i + 1] == b' ' || inner[i + 1] == b'\t' || (33..=126).contains(&inner[i + 1])) {
+            if i + 1 >= inner.len()
+                || !(inner[i + 1] == b' '
+                    || inner[i + 1] == b'\t'
+                    || (33..=126).contains(&inner[i + 1]))
+            {
                 return false;
             }
             i += 2;
             continue;
         }
-        if !(c == b' ' || c == b'\t' || c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c)) {
+        if !(c == b' '
+            || c == b'\t'
+            || c == 33
+            || (35..=91).contains(&c)
+            || (93..=126).contains(&c))
+        {
             return false;
         }
         i += 1;
@@ -76,7 +90,9 @@ fn is_domain_literal(s: &[u8]) -> bool {
     s.len() >= 2
         && s[0] == b'['
         && s[s.len() - 1] == b']'
-        && s[1..s.len() - 1].iter().all(|&c| c == b' ' || (33..=90).contains(&c) || (94..=126).contains(&c))
+        && s[1..s.len() - 1]
+            .iter()
+            .all(|&c| c == b' ' || (33..=90).contains(&c) || (94..=126).contains(&c))
 }
 
 /// Haskell `Email.isValid`.
@@ -89,7 +105,8 @@ fn is_valid_email(s: &[u8]) -> bool {
     if local.len() > 64 || domain.len() > 255 {
         return false;
     }
-    (is_dot_atom(local) || is_quoted_string(local)) && (is_dot_atom(domain) || is_domain_literal(domain))
+    (is_dot_atom(local) || is_quoted_string(local))
+        && (is_dot_atom(domain) || is_domain_literal(domain))
 }
 
 #[cfg(test)]

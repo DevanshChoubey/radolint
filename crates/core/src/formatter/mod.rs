@@ -12,7 +12,7 @@ pub mod sarif;
 pub mod sonarqube;
 pub mod tty;
 
-pub use format::{read_maybe_output_format, FormatResult, OutputFormat};
+pub use format::{FormatResult, OutputFormat, read_maybe_output_format};
 
 use std::io::Write;
 
@@ -27,8 +27,12 @@ pub fn h_write(
     match format {
         OutputFormat::Checkstyle => checkstyle::h_write(handle, all_results, file_path_in_report),
         OutputFormat::Codacy => codacy::h_write(handle, all_results),
-        OutputFormat::CodeclimateJson => codeclimate::h_write(handle, all_results, file_path_in_report),
-        OutputFormat::GitLabCodeclimateJson => codeclimate::h_write_gitlab(handle, all_results, file_path_in_report),
+        OutputFormat::CodeclimateJson => {
+            codeclimate::h_write(handle, all_results, file_path_in_report)
+        }
+        OutputFormat::GitLabCodeclimateJson => {
+            codeclimate::h_write_gitlab(handle, all_results, file_path_in_report)
+        }
         OutputFormat::Gnu => gnu::h_write(handle, all_results),
         OutputFormat::JUnit => junit::h_write(handle, all_results, file_path_in_report),
         OutputFormat::Json => json::h_write(handle, all_results),

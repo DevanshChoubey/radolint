@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Lint.hs.
 
 use crate::config::configuration::Configuration;
-use crate::formatter::format::{to_result, FormatResult};
+use crate::formatter::format::{FormatResult, to_result};
 use crate::process;
 use crate::rule::{CheckFailure, DLSeverity, Failures, RuleCode};
 use dlint_parser::ParseError;
@@ -22,7 +22,10 @@ pub fn lint_io(config: &Configuration, d_files: &[String]) -> std::io::Result<Ve
 }
 
 /// Haskell `lint`.
-pub fn lint(config: &Configuration, parsed_files: Vec<(String, Result<Dockerfile, ParseError>)>) -> Vec<FormatResult> {
+pub fn lint(
+    config: &Configuration,
+    parsed_files: Vec<(String, Result<Dockerfile, ParseError>)>,
+) -> Vec<FormatResult> {
     parsed_files
         .into_iter()
         .map(|(name, res)| to_result(&name, res.map(|d| analyze(config, &d))))
@@ -36,12 +39,13 @@ pub fn analyze(config: &Configuration, dockerfile: &Dockerfile) -> Failures {
 
 /// Haskell `fixSeverity`.
 pub fn fix_severity(config: &Configuration, failures: Failures) -> Failures {
-    let make_severity = |s: DLSeverity, rules: &[RuleCode], mut rule: CheckFailure| -> CheckFailure {
-        if rules.contains(&rule.code) {
-            rule.severity = s;
-        }
-        rule
-    };
+    let make_severity =
+        |s: DLSeverity, rules: &[RuleCode], mut rule: CheckFailure| -> CheckFailure {
+            if rules.contains(&rule.code) {
+                rule.severity = s;
+            }
+            rule
+        };
     let correct = |rule: CheckFailure| -> CheckFailure {
         // composed right-to-left: style, info, warning, error (error applied last, so it wins)
         let r = make_severity(DLSeverity::DLStyleC, &config.style_rules, rule);

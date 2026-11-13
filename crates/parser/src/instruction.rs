@@ -100,10 +100,9 @@ pub fn parse_onbuild(p: &mut Parser) -> PResult<Instruction<String>> {
 /// Haskell `parsePragma` (Instruction.hs).
 pub fn parse_pragma(p: &mut Parser) -> PResult<Instruction<String>> {
     lexeme_(p, |p| p.char('#'))?;
-    p.choice(&[
-        &|p| p.label("an escape", parse_escape_pragma),
-        &|p| p.label("a syntax", parse_syntax_pragma),
-    ])
+    p.choice(&[&|p| p.label("an escape", parse_escape_pragma), &|p| {
+        p.label("a syntax", parse_syntax_pragma)
+    }])
 }
 
 /// Haskell `parseEscapePragma` (Instruction.hs).
@@ -111,7 +110,9 @@ pub fn parse_escape_pragma(p: &mut Parser) -> PResult<Instruction<String>> {
     lexeme_(p, |p| p.string("escape"))?;
     lexeme_(p, |p| p.string("="))?;
     let c = p.char_literal()?;
-    Ok(Instruction::Pragma(PragmaDirective::Escape(EscapeChar { escape: c })))
+    Ok(Instruction::Pragma(PragmaDirective::Escape(EscapeChar {
+        escape: c,
+    })))
 }
 
 /// Haskell `parseSyntaxPragma` (Instruction.hs).
@@ -120,7 +121,10 @@ pub fn parse_syntax_pragma(p: &mut Parser) -> PResult<Instruction<String>> {
     lexeme_(p, |p| p.string("="))?;
     let img = until_eol(p, "the syntax")?;
     Ok(Instruction::Pragma(PragmaDirective::Syntax(SyntaxImage {
-        syntax: Image { registry_name: None, image_name: img },
+        syntax: Image {
+            registry_name: None,
+            image_name: img,
+        },
     })))
 }
 
@@ -178,12 +182,18 @@ mod tests {
 
     #[test]
     fn parses_arg_with_default() {
-        assert_eq!(ast("ARG FOO=bar"), Instruction::Arg("FOO".into(), Some("bar".into())));
+        assert_eq!(
+            ast("ARG FOO=bar"),
+            Instruction::Arg("FOO".into(), Some("bar".into()))
+        );
     }
 
     #[test]
     fn parses_maintainer() {
-        assert_eq!(ast("MAINTAINER hudu@mail.com"), Instruction::Maintainer("hudu@mail.com".into()));
+        assert_eq!(
+            ast("MAINTAINER hudu@mail.com"),
+            Instruction::Maintainer("hudu@mail.com".into())
+        );
     }
 
     #[test]

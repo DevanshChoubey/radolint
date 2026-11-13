@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3000.hs.
 
-use crate::rule::{drop_quotes, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, drop_quotes, simple_rule};
 use dlint_syntax::Instruction;
 
 /// Haskell `rule`.

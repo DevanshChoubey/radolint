@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/TTY.hs.
 
-use super::format::{error_message_line, severity_text, strip_newlines, FormatResult};
+use super::format::{FormatResult, error_message_line, severity_text, strip_newlines};
 use crate::rule::{CheckFailure, DLSeverity};
 use dlint_parser::ParseError;
 use std::io::Write;
@@ -18,7 +18,11 @@ pub fn format_check(nocolor: bool, source: &str, c: &CheckFailure) -> String {
         source,
         c.line,
         c.code.un_rule_code,
-        if nocolor { severity_text(c.severity).to_string() } else { colorized_severity(c.severity) },
+        if nocolor {
+            severity_text(c.severity).to_string()
+        } else {
+            colorized_severity(c.severity)
+        },
         c.message
     )
 }
@@ -51,7 +55,11 @@ pub fn colorized_severity(s: DLSeverity) -> String {
 }
 
 /// Haskell `hWrite`.
-pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], nocolor: bool) -> std::io::Result<()> {
+pub fn h_write(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    nocolor: bool,
+) -> std::io::Result<()> {
     for r in results {
         for e in &r.errors {
             writeln!(handle, "{}", format_error(e))?;
@@ -70,7 +78,12 @@ mod tests {
     use crate::testing::assert_formatter;
 
     fn cf(code: &str, severity: DLSeverity, message: &str, line: i64) -> CheckFailure {
-        CheckFailure { code: code.into(), severity, message: message.to_string(), line: line as _ }
+        CheckFailure {
+            code: code.into(),
+            severity,
+            message: message.to_string(),
+            line: line as _,
+        }
     }
 
     #[test]

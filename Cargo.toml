@@ -24,13 +24,15 @@ regex = "1"
 # ShellCheck port (our own), pinned by tag.
 shelllint-core = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
 shelllint-parser = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
-shelllint-lib = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
 shelllint-checker = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
 
 [workspace.lints.clippy]
 type_complexity = "allow"
 enum_variant_names = "allow"
 too_many_arguments = "allow"
+# Rules mirror hadolint's Haskell guards one branch per case, so keep them as written.
+if_same_then_else = "allow"
+large_enum_variant = "allow"
 
 [profile.dev.package.shelllint-parser]
 opt-level = 2

@@ -8,7 +8,12 @@ use std::collections::BTreeSet;
 
 /// Haskell `rule`.
 pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {
-    mconcat(label_schema.keys().map(|k| missing_label_rule(k.clone())).collect())
+    mconcat(
+        label_schema
+            .keys()
+            .map(|k| missing_label_rule(k.clone()))
+            .collect(),
+    )
 }
 
 /// Haskell `data StageID`.
@@ -21,7 +26,12 @@ struct StageID {
 /// Haskell `data Acc`.
 #[derive(Debug, Clone)]
 enum Acc {
-    Acc(StageID, BTreeSet<StageID>, BTreeSet<StageID>, BTreeSet<StageID>),
+    Acc(
+        StageID,
+        BTreeSet<StageID>,
+        BTreeSet<StageID>,
+        BTreeSet<StageID>,
+    ),
     Empty,
 }
 
@@ -34,13 +44,21 @@ fn missing_label_rule(label: LabelName) -> Box<dyn Rule> {
     let severity = DLSeverity::DLInfoC;
     let message = format!("Label `{}` is missing.", label);
 
-    let check = move |line: Linenumber, state: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+    let check = move |line: Linenumber,
+                      state: State<Acc>,
+                      instr: &Instruction<ParsedShell>|
+          -> State<Acc> {
         match instr {
             Instruction::From(img) => {
                 let img = img.clone();
-                modify(move |a| current_stage(StageID { name: img, line }, a), state)
+                modify(
+                    move |a| current_stage(StageID { name: img, line }, a),
+                    state,
+                )
             }
-            Instruction::Copy(_, flags) if matches!(flags.source_flag, CopySource::CopySource(_)) => {
+            Instruction::Copy(_, flags)
+                if matches!(flags.source_flag, CopySource::CopySource(_)) =>
+            {
                 let src = match &flags.source_flag {
                     CopySource::CopySource(s) => s.clone(),
                     _ => unreachable!(),
@@ -196,7 +214,15 @@ mod tests {
     }
     #[test]
     fn warn_twice_two_stages_wrong_labels_only() {
-        fails_n(2, &["FROM stage1", "LABEL bar=\"baz\"", "FROM stage2", "LABEL buzz=\"fuzz\""]);
+        fails_n(
+            2,
+            &[
+                "FROM stage1",
+                "LABEL bar=\"baz\"",
+                "FROM stage2",
+                "LABEL buzz=\"fuzz\"",
+            ],
+        );
     }
     #[test]
     fn warn_once_two_stages_label_present_in_first_only() {
@@ -208,7 +234,15 @@ mod tests {
     }
     #[test]
     fn warn_once_two_stages_no_inheritance_wrong_label_in_one() {
-        fails_n(1, &["FROM baseimage", "LABEL baz=\"bar\"", "FROM newimage", "LABEL foo=\"bar\""]);
+        fails_n(
+            1,
+            &[
+                "FROM baseimage",
+                "LABEL baz=\"bar\"",
+                "FROM newimage",
+                "LABEL foo=\"bar\"",
+            ],
+        );
     }
     #[test]
     fn warn_twice_two_stages_inheritance_no_labels() {
@@ -216,22 +250,40 @@ mod tests {
     }
     #[test]
     fn dont_warn_two_stages_inheritance_label_defined_in_second_stage() {
-        fails_n(0, &["FROM baseimage as base", "FROM base", "LABEL foo=\"bar\""]);
+        fails_n(
+            0,
+            &["FROM baseimage as base", "FROM base", "LABEL foo=\"bar\""],
+        );
     }
     #[test]
     fn dont_warn_two_stages_no_inheritance_label_in_last_stage_with_copy() {
         fails_n(
             0,
-            &["FROM baseimage as base", "FROM anotherimage", "LABEL foo=\"bar\"", "COPY --from=base /bar /baz"],
+            &[
+                "FROM baseimage as base",
+                "FROM anotherimage",
+                "LABEL foo=\"bar\"",
+                "COPY --from=base /bar /baz",
+            ],
         );
     }
     #[test]
     fn warn_once_two_stages_no_inheritance_label_in_last_stage_no_connection() {
-        fails_n(1, &["FROM baseimage as base", "FROM anotherimage", "LABEL foo=\"bar\""]);
+        fails_n(
+            1,
+            &[
+                "FROM baseimage as base",
+                "FROM anotherimage",
+                "LABEL foo=\"bar\"",
+            ],
+        );
     }
     #[test]
     fn dont_warn_two_stages_inheritance() {
-        fails_n(0, &["FROM baseimage as base", "LABEL foo=\"bar\"", "FROM base"]);
+        fails_n(
+            0,
+            &["FROM baseimage as base", "LABEL foo=\"bar\"", "FROM base"],
+        );
     }
     #[test]
     fn warn_once_multiple_results_no_inheritance_label_in_one_result() {
@@ -250,10 +302,28 @@ mod tests {
     }
     #[test]
     fn warn_once_multiple_results_inheritance_label_in_one_result() {
-        fails_n(1, &["FROM baseimage as base", "FROM base", "LABEL foo=\"bar\"", "", "FROM base"]);
+        fails_n(
+            1,
+            &[
+                "FROM baseimage as base",
+                "FROM base",
+                "LABEL foo=\"bar\"",
+                "",
+                "FROM base",
+            ],
+        );
     }
     #[test]
     fn warn_once_multiple_results_inheritance_label_in_one_result_2() {
-        fails_n(1, &["FROM baseimage as base", "FROM base", "", "FROM base", "LABEL foo=\"bar\""]);
+        fails_n(
+            1,
+            &[
+                "FROM baseimage as base",
+                "FROM base",
+                "",
+                "FROM base",
+                "LABEL foo=\"bar\"",
+            ],
+        );
     }
 }

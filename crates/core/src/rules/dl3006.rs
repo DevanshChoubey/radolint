@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3006.hs.
 
-use crate::rule::{add_fail, custom_rule, empty_state, modify, pipe, CheckFailure, DLSeverity, Rule};
+use crate::rule::{
+    CheckFailure, DLSeverity, Rule, add_fail, custom_rule, empty_state, modify, pipe,
+};
 use dlint_syntax::*;
 use std::collections::BTreeSet;
 
@@ -22,7 +24,9 @@ pub fn rule() -> Box<dyn Rule> {
                 };
                 let was_alias = |i: &str| st.state.contains(i);
                 let untagged_ok = match &from.image {
-                    Image { image_name: i, .. } if from.tag.is_none() && from.digest.is_none() && i != "scratch" => {
+                    Image { image_name: i, .. }
+                        if from.tag.is_none() && from.digest.is_none() && i != "scratch" =>
+                    {
                         // When the image being used is a previously defined FROM alias,
                         // then we can safely ignore that the image is not tagged. Otherwise
                         // we marked it as a failure

@@ -8,3 +8,6 @@ description = "Dockerfile parser (port of language-docker Language.Docker.Parser
 
 [dependencies]
 dlint-syntax.workspace = true
+
+[lints]
+workspace = true

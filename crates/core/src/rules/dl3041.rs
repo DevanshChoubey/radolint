@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3041.hs.
 
 use crate::rule::{
-    add_fail, combine, custom_rule, empty_state, fold_arguments, modify, onbuild, CheckFailure,
-    DLSeverity, Rule, RuleCode, State,
+    CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, combine, custom_rule, empty_state,
+    fold_arguments, modify, onbuild,
 };
 use crate::shell;
 use crate::shell::ParsedShell;
@@ -33,36 +33,41 @@ fn dl3041() -> Box<dyn Rule> {
     let severity = DLSeverity::DLWarningC;
     let message = "Specify version with `dnf install -y <package>-<version>`.";
 
-    let check = move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
-        match instr {
-            Instruction::Run(RunArgs(a, _)) => {
-                let ok = fold_arguments(
-                    |s: &ParsedShell| dnf_packages(s).iter().all(|p| package_version_fixed(&st.state, p)),
-                    a,
-                ) && fold_arguments(
-                    |s: &ParsedShell| dnf_modules(s).iter().all(|m| module_version_fixed(m)),
-                    a,
-                );
-                if ok {
-                    st
-                } else {
-                    add_fail(
-                        CheckFailure {
-                            code: RuleCode::from(code),
-                            severity,
-                            message: message.to_string(),
-                            line,
+    let check =
+        move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+            match instr {
+                Instruction::Run(RunArgs(a, _)) => {
+                    let ok = fold_arguments(
+                        |s: &ParsedShell| {
+                            dnf_packages(s)
+                                .iter()
+                                .all(|p| package_version_fixed(&st.state, p))
                         },
-                        st,
-                    )
+                        a,
+                    ) && fold_arguments(
+                        |s: &ParsedShell| dnf_modules(s).iter().all(|m| module_version_fixed(m)),
+                        a,
+                    );
+                    if ok {
+                        st
+                    } else {
+                        add_fail(
+                            CheckFailure {
+                                code: RuleCode::from(code),
+                                severity,
+                                message: message.to_string(),
+                                line,
+                            },
+                            st,
+                        )
+                    }
                 }
+                Instruction::Env(pairs) => modify(|a| register_envs(pairs, a), st),
+                Instruction::Arg(arg, _) => modify(|a| register_arg(arg, a), st),
+                Instruction::From(bi) => modify(|a| new_stage(bi, a), st),
+                _ => st,
             }
-            Instruction::Env(pairs) => modify(|a| register_envs(pairs, a), st),
-            Instruction::Arg(arg, _) => modify(|a| register_arg(arg, a), st),
-            Instruction::From(bi) => modify(|a| new_stage(bi, a), st),
-            _ => st,
-        }
-    };
+        };
     custom_rule(check, empty_state(Acc::Empty))
 }
 
@@ -97,8 +102,14 @@ fn package_version_fixed(acc: &Acc, package: &str) -> bool {
 fn env_defined(acc: &Acc, package: &str) -> bool {
     match acc {
         Acc::Empty => false,
-        Acc::Acc { stage_idx, envs, args, .. } => {
-            envs.get(stage_idx).map_or(false, |s| s.iter().any(|v| var_in_text(v, package)))
+        Acc::Acc {
+            stage_idx,
+            envs,
+            args,
+            ..
+        } => {
+            envs.get(stage_idx)
+                .is_some_and(|s| s.iter().any(|v| var_in_text(v, package)))
                 || args.iter().any(|v| var_in_text(v, package))
         }
     }
@@ -115,7 +126,7 @@ fn is_version_like(parts: &[&str]) -> bool {
         return false; // No parts after splitting by hyphen
     }
     let part_is_valid = |p: &&str| p.chars().all(is_version_char);
-    let part_starts_with_digit = |p: &&str| p.chars().next().map_or(false, |c| c.is_ascii_digit());
+    let part_starts_with_digit = |p: &&str| p.chars().next().is_some_and(|c| c.is_ascii_digit());
     parts.iter().all(part_is_valid) && parts.iter().any(part_starts_with_digit)
 }
 
@@ -164,12 +175,22 @@ fn register_envs(pairs: &Pairs, acc: Acc) -> Acc {
             envs: BTreeMap::from([(0, names)]),
             args: BTreeSet::new(),
         },
-        Acc::Acc { stage_idx, stage_aliases, mut envs, args } => {
+        Acc::Acc {
+            stage_idx,
+            stage_aliases,
+            mut envs,
+            args,
+        } => {
             // Map.adjust: no-op when the key is absent
             if let Some(s) = envs.get_mut(&stage_idx) {
                 s.extend(names);
             }
-            Acc::Acc { stage_idx, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -183,9 +204,19 @@ fn register_arg(arg: &str, acc: Acc) -> Acc {
             envs: BTreeMap::from([(0, BTreeSet::new())]),
             args: BTreeSet::from([arg.to_string()]),
         },
-        Acc::Acc { stage_idx, stage_aliases, envs, mut args } => {
+        Acc::Acc {
+            stage_idx,
+            stage_aliases,
+            envs,
+            mut args,
+        } => {
             args.insert(arg.to_string());
-            Acc::Acc { stage_idx, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -205,7 +236,12 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
                 args: BTreeSet::new(),
             }
         }
-        Acc::Acc { stage_idx, mut stage_aliases, mut envs, args } => {
+        Acc::Acc {
+            stage_idx,
+            mut stage_aliases,
+            mut envs,
+            args,
+        } => {
             let als = |a: &Option<ImageAlias>| match a {
                 None => String::new(),
                 Some(a) => a.un_image_alias.clone(),
@@ -220,7 +256,12 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
             let stage_envs = envs.get(&stage_idx_of_alias).cloned().unwrap_or_default();
             stage_aliases.insert(stage_idx + 1, als(&bi.alias));
             envs.insert(stage_idx + 1, stage_envs);
-            Acc::Acc { stage_idx: stage_idx + 1, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx: stage_idx + 1,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -252,9 +293,15 @@ mod tests {
     #[test]
     fn ok_with_dnf_version_pinning() {
         rule_catches_not(R, "RUN dnf install -y tomcat-9.0.1 && dnf clean all");
-        rule_catches_not(R, "RUN microdnf install -y tomcat-9.0.1 && microdnf clean all");
+        rule_catches_not(
+            R,
+            "RUN microdnf install -y tomcat-9.0.1 && microdnf clean all",
+        );
         on_build_rule_catches_not(R, "RUN dnf install -y tomcat-9.0.1 && dnf clean all");
-        on_build_rule_catches_not(R, "RUN microdnf install -y tomcat-9.0.1 && microdnf clean all");
+        on_build_rule_catches_not(
+            R,
+            "RUN microdnf install -y tomcat-9.0.1 && microdnf clean all",
+        );
     }
 
     #[test]
@@ -272,9 +319,15 @@ mod tests {
     #[test]
     fn ok_with_dnf_version_pinning_package_name_with_dash() {
         rule_catches_not(R, "RUN dnf install -y rpm-sign-4.16.1.3 && dnf clean all");
-        rule_catches_not(R, "RUN microdnf install -y rpm-sign-4.16.1.3 && microdnf clean all");
+        rule_catches_not(
+            R,
+            "RUN microdnf install -y rpm-sign-4.16.1.3 && microdnf clean all",
+        );
         on_build_rule_catches_not(R, "RUN dnf install -y rpm-sign-4.16.1.3 && dnf clean all");
-        on_build_rule_catches_not(R, "RUN microdnf install -y rpm-sign-4.16.1.3 && microdnf clean all");
+        on_build_rule_catches_not(
+            R,
+            "RUN microdnf install -y rpm-sign-4.16.1.3 && microdnf clean all",
+        );
     }
 
     #[test]
@@ -296,17 +349,26 @@ mod tests {
     #[test]
     fn not_ok_without_dnf_version_pinning_modules() {
         rule_catches(R, "RUN dnf module install -y tomcat && dnf clean all");
-        rule_catches(R, "RUN microdnf module install -y tomcat && microdnf clean all");
+        rule_catches(
+            R,
+            "RUN microdnf module install -y tomcat && microdnf clean all",
+        );
         on_build_rule_catches(R, "RUN dnf module install -y tomcat && dnf clean all");
     }
 
     #[test]
     fn ok_with_dnf_version_pinning_modules() {
         rule_catches_not(R, "RUN dnf module install -y tomcat:9 && dnf clean all");
-        rule_catches_not(R, "RUN microdnf module install -y tomcat:9 && microdnf clean all");
+        rule_catches_not(
+            R,
+            "RUN microdnf module install -y tomcat:9 && microdnf clean all",
+        );
         rule_catches_not(R, "RUN notdnf module install tomcat");
         on_build_rule_catches_not(R, "RUN dnf module install -y tomcat:9 && dnf clean all");
-        on_build_rule_catches_not(R, "RUN microdnf module install -y tomcat:9 && microdnf clean all");
+        on_build_rule_catches_not(
+            R,
+            "RUN microdnf module install -y tomcat:9 && microdnf clean all",
+        );
         on_build_rule_catches_not(R, "RUN notdnf module install tomcat");
     }
 
@@ -317,20 +379,32 @@ mod tests {
             R,
             "RUN dnf -y --setopt=group_package_types=\"mandatory\" group install \"Development Tools\"",
         );
-        rule_catches_not(R, "RUN dnf group install -y \"Development Tools\" && dnf clean all");
-        rule_catches_not(R, "RUN microdnf group install -y \"Development Tools\" && microdnf clean all");
+        rule_catches_not(
+            R,
+            "RUN dnf group install -y \"Development Tools\" && dnf clean all",
+        );
+        rule_catches_not(
+            R,
+            "RUN microdnf group install -y \"Development Tools\" && microdnf clean all",
+        );
         on_build_rule_catches_not(R, "RUN dnf -y group install \"Development Tools\"");
     }
 
     #[test]
     fn ok_with_version_as_variable_braced() {
-        rule_catches_not(R, "ENV version=2.51.0-2.fc42\nRUN dnf -y install git-core-${version}\n");
+        rule_catches_not(
+            R,
+            "ENV version=2.51.0-2.fc42\nRUN dnf -y install git-core-${version}\n",
+        );
     }
 
     #[test]
     fn ok_with_version_as_arg_unbraced() {
         // upstream spec expects no failure even though only `${var}` form is matched
-        rule_catches_not(R, "ARG version=2.51.0-2.fc42\nRUN dnf -y install git-core-$version\n");
+        rule_catches_not(
+            R,
+            "ARG version=2.51.0-2.fc42\nRUN dnf -y install git-core-$version\n",
+        );
     }
 
     #[test]

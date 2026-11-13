@@ -7,3 +7,6 @@ license.workspace = true
 description = "Dockerfile AST (port of language-docker Language.Docker.Syntax)"
 
 [dependencies]
+
+[lints]
+workspace = true

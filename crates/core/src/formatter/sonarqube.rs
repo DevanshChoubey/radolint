@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Formatter/SonarQube.hs.
 
-use super::format::{error_message, error_position, FormatResult};
+use super::format::{FormatResult, error_message, error_position};
 use crate::rule::{CheckFailure, DLSeverity};
 use dlint_parser::ParseError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::Write;
 
 /// Haskell `SonarQubeFormat s e`.
@@ -60,20 +60,33 @@ impl SonarQubeFormat<'_> {
 }
 
 /// Haskell `formatResult`.
-fn format_result<'a>(file_path_in_report: Option<&str>, r: &'a FormatResult) -> Vec<SonarQubeFormat<'a>> {
+fn format_result<'a>(
+    file_path_in_report: Option<&str>,
+    r: &'a FormatResult,
+) -> Vec<SonarQubeFormat<'a>> {
     // `if null filePathInReport then filename else getFilePath filePathInReport`
     let filepath = if file_path_in_report.is_none() {
         r.file_name.clone()
     } else {
         get_file_path(file_path_in_report)
     };
-    let error_messages = r.errors.iter().map(|e| SonarQubeFormat::SonarQubeError(filepath.clone(), e));
-    let check_messages = r.checks.iter().map(|c| SonarQubeFormat::SonarQubeCheck(filepath.clone(), c));
+    let error_messages = r
+        .errors
+        .iter()
+        .map(|e| SonarQubeFormat::SonarQubeError(filepath.clone(), e));
+    let check_messages = r
+        .checks
+        .iter()
+        .map(|c| SonarQubeFormat::SonarQubeCheck(filepath.clone(), c));
     error_messages.chain(check_messages).collect()
 }
 
 /// Haskell `hWrite`.
-pub fn h_write(handle: &mut dyn Write, results: &[FormatResult], file_path_in_report: Option<&str>) -> std::io::Result<()> {
+pub fn h_write(
+    handle: &mut dyn Write,
+    results: &[FormatResult],
+    file_path_in_report: Option<&str>,
+) -> std::io::Result<()> {
     let flattened: Vec<Value> = results
         .iter()
         .flat_map(|r| format_result(file_path_in_report, r))
@@ -121,11 +134,24 @@ mod tests {
     use crate::rule::RuleCode;
     use crate::testing::assert_formatter_json;
 
-    fn mk_issue(rule_id: &str, severity: &str, issue_type: &str, msg: &str, line_num: u32) -> Value {
+    fn mk_issue(
+        rule_id: &str,
+        severity: &str,
+        issue_type: &str,
+        msg: &str,
+        line_num: u32,
+    ) -> Value {
         mk_issue_path(rule_id, severity, issue_type, msg, "<string>", line_num)
     }
 
-    fn mk_issue_path(rule_id: &str, severity: &str, issue_type: &str, msg: &str, path: &str, line_num: u32) -> Value {
+    fn mk_issue_path(
+        rule_id: &str,
+        severity: &str,
+        issue_type: &str,
+        msg: &str,
+        path: &str,
+        line_num: u32,
+    ) -> Value {
         json!({
             "engineId": "Hadolint",
             "ruleId": rule_id,
@@ -145,12 +171,22 @@ mod tests {
     }
 
     fn cf(code: &str, severity: DLSeverity, message: &str, line: u32) -> CheckFailure {
-        CheckFailure { code: RuleCode::from(code), severity, message: message.to_string(), line: line as _ }
+        CheckFailure {
+            code: RuleCode::from(code),
+            severity,
+            message: message.to_string(),
+            line: line as _,
+        }
     }
 
     #[test]
     fn print_empty_results() {
-        assert_formatter_json(OutputFormat::SonarQube, vec![], true, &json!({ "issues": [] }));
+        assert_formatter_json(
+            OutputFormat::SonarQube,
+            vec![],
+            true,
+            &json!({ "issues": [] }),
+        );
     }
 
     #[test]
@@ -175,7 +211,11 @@ mod tests {
     #[test]
     fn use_custom_file_path_from_file_path_in_report() {
         let checks = vec![cf("DL3000", DLSeverity::DLErrorC, "error msg", 1)];
-        let results = vec![FormatResult { file_name: "<string>".to_string(), errors: vec![], checks }];
+        let results = vec![FormatResult {
+            file_name: "<string>".to_string(),
+            errors: vec![],
+            checks,
+        }];
         let custom_path = Some("path/to/custom/Dockerfile");
         let expected = json!({
             "issues": [mk_issue_path("DL3000", "CRITICAL", "BUG", "error msg", "path/to/custom/Dockerfile", 1)]

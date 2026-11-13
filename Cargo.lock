@@ -52,7 +52,6 @@ dependencies = [
  "serde_yaml_ng",
  "shelllint-checker",
  "shelllint-core",
- "shelllint-lib",
  "shelllint-parser",
 ]
 
@@ -258,26 +257,6 @@ version = "0.2.0"
 source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
 dependencies = [
  "regex",
-]
-
-[[package]]
-name = "shelllint-formatter"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
-dependencies = [
- "shelllint-core",
-]
-
-[[package]]
-name = "shelllint-lib"
-version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
-dependencies = [
- "shelllint-analyzer",
- "shelllint-checker",
- "shelllint-checks",
- "shelllint-core",
- "shelllint-formatter",
 ]
 
 [[package]]

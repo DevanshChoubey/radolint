@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3035.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
-use crate::shell::{cmd_has_args, no_commands, ParsedShell};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
+use crate::shell::{ParsedShell, cmd_has_args, no_commands};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -18,7 +18,9 @@ fn dl3035() -> Box<dyn Rule> {
 
     let check = |instr: &Instruction<ParsedShell>| match instr {
         Instruction::Run(RunArgs(args, _)) => fold_arguments(
-            |a: &ParsedShell| no_commands(|c| cmd_has_args("zypper", &["dist-upgrade", "dup"], c), a),
+            |a: &ParsedShell| {
+                no_commands(|c| cmd_has_args("zypper", &["dist-upgrade", "dup"], c), a)
+            },
             args,
         ),
         _ => true,

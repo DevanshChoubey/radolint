@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3018.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::*;
 
@@ -14,10 +14,15 @@ pub fn rule() -> Box<dyn Rule> {
 fn dl3018() -> Box<dyn Rule> {
     let code = "DL3018";
     let severity = DLSeverity::DLWarningC;
-    let message = "Pin versions in apk add. Instead of `apk add <package>` use `apk add <package>=<version>`";
+    let message =
+        "Pin versions in apk add. Instead of `apk add <package>` use `apk add <package>=<version>`";
     let check = |instr: &Instruction<ParsedShell>| match instr {
         Instruction::Run(RunArgs(args, _)) => fold_arguments(
-            |a: &ParsedShell| apk_add_packages(a).iter().all(|p| version_fixed(p) || package_file(p)),
+            |a: &ParsedShell| {
+                apk_add_packages(a)
+                    .iter()
+                    .all(|p| version_fixed(p) || package_file(p))
+            },
             args,
         ),
         _ => true,
@@ -33,7 +38,8 @@ fn dl3018() -> Box<dyn Rule> {
 
 /// Haskell `apkAddPackages`.
 fn apk_add_packages(args: &ParsedShell) -> Vec<String> {
-    let drop_target = |cmd: &shell::Command| shell::drop_flag_arg(&["t", "virtual", "repository", "X"], cmd);
+    let drop_target =
+        |cmd: &shell::Command| shell::drop_flag_arg(&["t", "virtual", "repository", "X"], cmd);
     let mut out = Vec::new();
     for cmd in &args.present_commands {
         if shell::cmd_has_args("apk", &["add"], cmd) {
@@ -82,7 +88,9 @@ mod tests {
         let docker_file = [
             "RUN apk add --no-cache flex=2.6.4-r1 \\",
             " && pip install -r requirements.txt",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -95,7 +103,9 @@ mod tests {
             "libffi=3.2.1-r3 \\",
             "python2=2.7.13-r1 \\",
             "libbz2=1.0.6-r5",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -108,7 +118,9 @@ mod tests {
             "  \"libffi~3.2.1\" \\",
             "  \"python3<3.6.12-r2\" \\",
             "  \"libbz2=~1.0.6-r4\"",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -121,7 +133,9 @@ mod tests {
             "libffi \\",
             "python2=2.7.13-r1 \\",
             "libbz2=1.0.6-r5",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches("DL3018", &docker_file);
         on_build_rule_catches("DL3018", &docker_file);
     }
@@ -135,7 +149,9 @@ mod tests {
             "&& pip install -r requirements.txt \\",
             "&& python setup.py install \\",
             "&& apk del build-dependencies",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -146,7 +162,9 @@ mod tests {
             "RUN apk add --no-cache \\",
             "--repository https://nl.alpinelinux.org/alpine/edge/testing \\",
             "flow=0.78.0-r0",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -157,7 +175,9 @@ mod tests {
             "RUN apk add --no-cache \\",
             "--repository=https://nl.alpinelinux.org/alpine/edge/testing \\",
             "flow=0.78.0-r0",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }
@@ -168,7 +188,9 @@ mod tests {
             "RUN apk add --no-cache \\",
             "-X https://nl.alpinelinux.org/alpine/edge/testing \\",
             "flow=0.78.0-r0",
-        ].join("\n") + "\n";
+        ]
+        .join("\n")
+            + "\n";
         rule_catches_not("DL3018", &docker_file);
         on_build_rule_catches_not("DL3018", &docker_file);
     }

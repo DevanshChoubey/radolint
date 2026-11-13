@@ -30,26 +30,40 @@ fn dl3033() -> Box<dyn Rule> {
     let severity = DLSeverity::DLWarningC;
     let message = "Specify version with `yum install -y <package>-<version>`.";
 
-    let check = move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
-        match instr {
-            Instruction::Run(RunArgs(a, _)) => {
-                if fold_arguments(|s| yum_packages(s).iter().all(|p| package_version_fixed(&st.state, p)), a)
-                    && fold_arguments(|s| yum_modules(s).iter().all(|m| module_version_fixed(m)), a)
-                {
-                    st
-                } else {
-                    add_fail(
-                        CheckFailure { code: RuleCode::from(code), severity, message: message.to_string(), line },
-                        st,
-                    )
+    let check =
+        move |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+            match instr {
+                Instruction::Run(RunArgs(a, _)) => {
+                    if fold_arguments(
+                        |s| {
+                            yum_packages(s)
+                                .iter()
+                                .all(|p| package_version_fixed(&st.state, p))
+                        },
+                        a,
+                    ) && fold_arguments(
+                        |s| yum_modules(s).iter().all(|m| module_version_fixed(m)),
+                        a,
+                    ) {
+                        st
+                    } else {
+                        add_fail(
+                            CheckFailure {
+                                code: RuleCode::from(code),
+                                severity,
+                                message: message.to_string(),
+                                line,
+                            },
+                            st,
+                        )
+                    }
                 }
+                Instruction::Env(pairs) => modify(|a| register_envs(pairs, a), st),
+                Instruction::Arg(arg, _) => modify(|a| register_arg(arg, a), st),
+                Instruction::From(bi) => modify(|a| new_stage(bi, a), st),
+                _ => st,
             }
-            Instruction::Env(pairs) => modify(|a| register_envs(pairs, a), st),
-            Instruction::Arg(arg, _) => modify(|a| register_arg(arg, a), st),
-            Instruction::From(bi) => modify(|a| new_stage(bi, a), st),
-            _ => st,
-        }
-    };
+        };
     custom_rule(check, empty_state(Acc::Empty))
 }
 
@@ -82,10 +96,16 @@ fn package_version_fixed(acc: &Acc, package: &str) -> bool {
 fn env_defined(acc: &Acc, package: &str) -> bool {
     match acc {
         Acc::Empty => false,
-        Acc::Acc { stage_idx, envs, args, .. } => {
+        Acc::Acc {
+            stage_idx,
+            envs,
+            args,
+            ..
+        } => {
             let empty = BTreeSet::new();
             let this_stage = envs.get(stage_idx).unwrap_or(&empty);
-            this_stage.iter().any(|v| var_in_text(v, package)) || args.iter().any(|v| var_in_text(v, package))
+            this_stage.iter().any(|v| var_in_text(v, package))
+                || args.iter().any(|v| var_in_text(v, package))
         }
     }
 }
@@ -101,7 +121,7 @@ fn is_version_like(parts: &[&str]) -> bool {
         return false; // No parts after splitting by hyphen
     }
     let part_is_valid = |p: &&str| p.chars().all(is_version_char);
-    let part_starts_with_digit = |p: &&str| p.chars().next().map_or(false, |c| c.is_ascii_digit());
+    let part_starts_with_digit = |p: &&str| p.chars().next().is_some_and(|c| c.is_ascii_digit());
     parts.iter().all(part_is_valid) && parts.iter().any(part_starts_with_digit)
 }
 
@@ -134,7 +154,10 @@ fn install_filter(cmd: &shell::Command) -> Vec<String> {
     if !shell::cmd_has_args("yum", &["install"], cmd) {
         return vec![];
     }
-    shell::get_args_no_flags(cmd).into_iter().filter(|a| a != "install" && a != "module").collect()
+    shell::get_args_no_flags(cmd)
+        .into_iter()
+        .filter(|a| a != "install" && a != "module")
+        .collect()
 }
 
 /// Haskell `registerEnvs`.
@@ -147,12 +170,22 @@ fn register_envs(pairs: &Pairs, acc: Acc) -> Acc {
             envs: BTreeMap::from([(0, names)]),
             args: BTreeSet::new(),
         },
-        Acc::Acc { stage_idx, stage_aliases, mut envs, args } => {
+        Acc::Acc {
+            stage_idx,
+            stage_aliases,
+            mut envs,
+            args,
+        } => {
             // Map.adjust: no-op when the key is absent
             if let Some(s) = envs.get_mut(&stage_idx) {
                 s.extend(names);
             }
-            Acc::Acc { stage_idx, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -166,9 +199,19 @@ fn register_arg(arg: &str, acc: Acc) -> Acc {
             envs: BTreeMap::from([(0, BTreeSet::new())]),
             args: BTreeSet::from([arg.to_string()]),
         },
-        Acc::Acc { stage_idx, stage_aliases, envs, mut args } => {
+        Acc::Acc {
+            stage_idx,
+            stage_aliases,
+            envs,
+            mut args,
+        } => {
             args.insert(arg.to_string());
-            Acc::Acc { stage_idx, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -188,7 +231,12 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
                 args: BTreeSet::new(),
             }
         }
-        Acc::Acc { stage_idx, mut stage_aliases, mut envs, args } => {
+        Acc::Acc {
+            stage_idx,
+            mut stage_aliases,
+            mut envs,
+            args,
+        } => {
             let als = |a: &Option<ImageAlias>| match a {
                 None => String::new(),
                 Some(a) => a.un_image_alias.clone(),
@@ -202,7 +250,12 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
             let stage_envs = envs.get(&stage_idx_of_alias).cloned().unwrap_or_default();
             stage_aliases.insert(stage_idx + 1, als(&bi.alias));
             envs.insert(stage_idx + 1, stage_envs);
-            Acc::Acc { stage_idx: stage_idx + 1, stage_aliases, envs, args }
+            Acc::Acc {
+                stage_idx: stage_idx + 1,
+                stage_aliases,
+                envs,
+                args,
+            }
         }
     }
 }
@@ -245,27 +298,49 @@ mod tests {
 
     #[test]
     fn not_ok_without_yum_version_pinning_modules() {
-        rule_catches("DL3033", "RUN yum module install -y tomcat && yum clean all");
-        on_build_rule_catches("DL3033", "RUN yum module install -y tomcat && yum clean all");
+        rule_catches(
+            "DL3033",
+            "RUN yum module install -y tomcat && yum clean all",
+        );
+        on_build_rule_catches(
+            "DL3033",
+            "RUN yum module install -y tomcat && yum clean all",
+        );
     }
 
     #[test]
     fn ok_with_yum_version_pinning_modules() {
-        rule_catches_not("DL3033", "RUN yum module install -y tomcat:9 && yum clean all");
+        rule_catches_not(
+            "DL3033",
+            "RUN yum module install -y tomcat:9 && yum clean all",
+        );
         rule_catches_not("DL3033", "RUN bash -c `# not even a yum command`");
-        on_build_rule_catches_not("DL3033", "RUN yum module install -y tomcat:9 && yum clean all");
+        on_build_rule_catches_not(
+            "DL3033",
+            "RUN yum module install -y tomcat:9 && yum clean all",
+        );
         on_build_rule_catches_not("DL3033", "RUN bash -c `# not even a yum command`");
     }
 
     #[test]
     fn ok_with_version_as_variable_braced() {
-        let snippet = ["ENV version=2.51.0-2.fc42", "RUN yum -y install git-core-${version}", ""].join("\n");
+        let snippet = [
+            "ENV version=2.51.0-2.fc42",
+            "RUN yum -y install git-core-${version}",
+            "",
+        ]
+        .join("\n");
         rule_catches_not("DL3033", &snippet);
     }
 
     #[test]
     fn ok_with_version_as_arg_unbraced() {
-        let snippet = ["ARG version=2.51.0-2.fc42", "RUN yum -y install git-core-$version", ""].join("\n");
+        let snippet = [
+            "ARG version=2.51.0-2.fc42",
+            "RUN yum -y install git-core-$version",
+            "",
+        ]
+        .join("\n");
         rule_catches_not("DL3033", &snippet);
     }
 

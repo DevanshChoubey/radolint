@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3001.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
-use crate::shell::{find_command_names, ParsedShell};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
+use crate::shell::{ParsedShell, find_command_names};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -22,9 +22,13 @@ fn dl3001() -> Box<dyn Rule> {
     };
 
     fn has_invalid(args: &ParsedShell) -> bool {
-        find_command_names(args).iter().all(|arg| !INVALID_CMDS.contains(&arg.as_str()))
+        find_command_names(args)
+            .iter()
+            .all(|arg| !INVALID_CMDS.contains(&arg.as_str()))
     }
-    const INVALID_CMDS: [&str; 9] = ["free", "kill", "mount", "ps", "service", "shutdown", "ssh", "top", "vim"];
+    const INVALID_CMDS: [&str; 9] = [
+        "free", "kill", "mount", "ps", "service", "shutdown", "ssh", "top", "vim",
+    ];
 
     simple_rule(code, severity, message, check)
 }

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3066.hs.
 
-use crate::rule::{add_fail, custom_rule, empty_state, modify, CheckFailure, DLSeverity, Rule, RuleCode};
+use crate::rule::{
+    CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, modify,
+};
 use dlint_syntax::*;
 use std::collections::BTreeSet;
 
@@ -70,7 +72,9 @@ fn var_in_uid(var: &str, uid: &str) -> bool {
 /// Haskell `registerArg`.
 fn register_arg(arg: &str, acc: Acc) -> Acc {
     match acc {
-        Acc::Empty => Acc::Acc { args: BTreeSet::from([arg.to_string()]) },
+        Acc::Empty => Acc::Acc {
+            args: BTreeSet::from([arg.to_string()]),
+        },
         Acc::Acc { mut args } => {
             args.insert(arg.to_string());
             Acc::Acc { args }

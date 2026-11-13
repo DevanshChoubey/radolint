@@ -31,35 +31,41 @@ fn dl3009() -> Box<dyn Rule> {
     let severity = DLSeverity::DLInfoC;
     let message = "Delete the apt lists (/var/lib/apt/lists) after installing something";
 
-    let check = |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
-        match instr {
-            Instruction::From(from) => modify(|a| remember_stage(line, from, a), st),
-            Instruction::Run(RunArgs(args, flags)) => {
-                if !fold_arguments(forgot_to_cleanup, args) {
-                    if fold_arguments(disabled_docker_clean, args) {
-                        modify(remember_docker_clean, st)
-                    } else {
+    let check =
+        |line: Linenumber, st: State<Acc>, instr: &Instruction<ParsedShell>| -> State<Acc> {
+            match instr {
+                Instruction::From(from) => modify(|a| remember_stage(line, from, a), st),
+                Instruction::Run(RunArgs(args, flags)) => {
+                    if !fold_arguments(forgot_to_cleanup, args) {
+                        if fold_arguments(disabled_docker_clean, args) {
+                            modify(remember_docker_clean, st)
+                        } else {
+                            st
+                        }
+                    } else if utils::has_cache_or_tmpfs_mount_with("/var/lib/apt/lists", flags) {
                         st
+                    } else if utils::has_cache_or_tmpfs_mount_with("/var/lib/apt", flags)
+                        && utils::has_cache_or_tmpfs_mount_with("/var/cache/apt", flags)
+                    {
+                        st
+                    } else {
+                        modify(|a| remember_line(line, a), st)
                     }
-                } else if utils::has_cache_or_tmpfs_mount_with("/var/lib/apt/lists", flags) {
-                    st
-                } else if utils::has_cache_or_tmpfs_mount_with("/var/lib/apt", flags)
-                    && utils::has_cache_or_tmpfs_mount_with("/var/cache/apt", flags)
-                {
-                    st
-                } else {
-                    modify(|a| remember_line(line, a), st)
                 }
+                _ => st,
             }
-            _ => st,
-        }
-    };
+        };
 
     // Convert the final state into failures
     let mark_failures = move |st: State<Acc>| -> Failures {
         match st.state {
             Acc::Empty => st.failures,
-            Acc::Acc { last_from, stages, forgets, .. } => {
+            Acc::Acc {
+                last_from,
+                stages,
+                forgets,
+                ..
+            } => {
                 let mut out = Vec::new();
                 for (line, from) in forgets.iter() {
                     let fail = CheckFailure {
@@ -70,7 +76,10 @@ fn dl3009() -> Box<dyn Rule> {
                     };
                     if *from == last_from {
                         out.push(fail);
-                    } else if let Some(ImageAlias { un_image_alias: als }) = &from.alias {
+                    } else if let Some(ImageAlias {
+                        un_image_alias: als,
+                    }) = &from.alias
+                    {
                         // Check if this stage is used later
                         if stages.contains_key(als) {
                             // If the same alias is used in another stage, fail
@@ -91,15 +100,27 @@ fn remember_stage(line: Linenumber, from: &BaseImage, acc: Acc) -> Acc {
     // Haskell pattern `Image _ als` binds the image name.
     let als = from.image.image_name.clone();
     match acc {
-        Acc::Acc { stages, forgets: o, .. } => {
+        Acc::Acc {
+            stages, forgets: o, ..
+        } => {
             let mut stages = stages;
             stages.insert(als, line);
-            Acc::Acc { last_from: from.clone(), docker_clean: true, stages, forgets: o }
+            Acc::Acc {
+                last_from: from.clone(),
+                docker_clean: true,
+                stages,
+                forgets: o,
+            }
         }
         Acc::Empty => {
             let mut stages = BTreeMap::new();
             stages.insert(als, line);
-            Acc::Acc { last_from: from.clone(), docker_clean: true, stages, forgets: BTreeMap::new() }
+            Acc::Acc {
+                last_from: from.clone(),
+                docker_clean: true,
+                stages,
+                forgets: BTreeMap::new(),
+            }
         }
     }
 }
@@ -107,14 +128,29 @@ fn remember_stage(line: Linenumber, from: &BaseImage, acc: Acc) -> Acc {
 /// Haskell `rememberLine`.
 fn remember_line(line: Linenumber, acc: Acc) -> Acc {
     match acc {
-        Acc::Acc { last_from, docker_clean, stages, mut forgets } => {
+        Acc::Acc {
+            last_from,
+            docker_clean,
+            stages,
+            mut forgets,
+        } => {
             forgets.insert(line, last_from.clone());
-            Acc::Acc { last_from, docker_clean, stages, forgets }
+            Acc::Acc {
+                last_from,
+                docker_clean,
+                stages,
+                forgets,
+            }
         }
         Acc::Empty => {
             let mut forgets = BTreeMap::new();
             forgets.insert(line, empty_image());
-            Acc::Acc { last_from: empty_image(), docker_clean: true, stages: BTreeMap::new(), forgets }
+            Acc::Acc {
+                last_from: empty_image(),
+                docker_clean: true,
+                stages: BTreeMap::new(),
+                forgets,
+            }
         }
     }
 }
@@ -128,15 +164,24 @@ fn remember_docker_clean(acc: Acc) -> Acc {
             stages: BTreeMap::new(),
             forgets: BTreeMap::new(),
         },
-        Acc::Acc { last_from, stages, forgets, .. } => {
-            Acc::Acc { last_from, docker_clean: false, stages, forgets }
-        }
+        Acc::Acc {
+            last_from,
+            stages,
+            forgets,
+            ..
+        } => Acc::Acc {
+            last_from,
+            docker_clean: false,
+            stages,
+            forgets,
+        },
     }
 }
 
 /// Haskell `forgotToCleanup`.
 fn forgot_to_cleanup(args: &ParsedShell) -> bool {
-    let has_cleanup = args.present_commands
+    let has_cleanup = args
+        .present_commands
         .iter()
         .any(|c| shell::cmd_has_args("rm", &["-rf", "/var/lib/apt/lists/*"], c));
     has_update(args) && !has_cleanup
@@ -154,11 +199,16 @@ fn has_update(args: &ParsedShell) -> bool {
 
 /// Haskell `disabledDockerClean`.
 fn disabled_docker_clean(args: &ParsedShell) -> bool {
-    let removes_script = args.present_commands
+    let removes_script = args
+        .present_commands
         .iter()
         .any(|c| shell::cmd_has_args("rm", &["/etc/apt/apt.conf.d/docker-clean"], c));
     let keeps_packages = args.present_commands.iter().any(|c| {
-        shell::cmd_has_args("echo", &["'Binary::apt::APT::Keep-Downloaded-Packages \"true\";'"], c)
+        shell::cmd_has_args(
+            "echo",
+            &["'Binary::apt::APT::Keep-Downloaded-Packages \"true\";'"],
+            c,
+        )
     });
     removes_script || keeps_packages
 }
@@ -167,7 +217,10 @@ fn disabled_docker_clean(args: &ParsedShell) -> bool {
 /// provide some feedback for this rule so we pretend there is a base image at the start.
 fn empty_image() -> BaseImage {
     BaseImage {
-        image: Image { registry_name: None, image_name: "scratch".to_string() },
+        image: Image {
+            registry_name: None,
+            image_name: "scratch".to_string(),
+        },
         tag: None,
         digest: None,
         alias: None,
@@ -185,7 +238,10 @@ mod tests {
             "FROM scratch",
             "RUN apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -198,7 +254,10 @@ mod tests {
             "FROM scratch",
             "RUN echo hey!",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -211,7 +270,10 @@ mod tests {
             "FROM scratch",
             "RUN apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -224,7 +286,10 @@ mod tests {
             "FROM foo",
             "RUN hey!",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -237,7 +302,10 @@ mod tests {
             "FROM foo",
             "RUN hey!",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -250,7 +318,10 @@ mod tests {
             "FROM scratch",
             "RUN hey!",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -261,7 +332,10 @@ mod tests {
             "FROM scratch",
             "RUN apt-get update && apt-get install python && rm -rf /var/lib/apt/lists/*",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -271,7 +345,10 @@ mod tests {
         let docker_file = [
             "RUN --mount=type=cache,target=/var/lib/apt/lists     apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -281,7 +358,10 @@ mod tests {
         let docker_file = [
             "RUN --mount=type=cache,target=/var/lib/apt     --mount=type=cache,target=/var/cache/apt     rm -f /etc/apt/apt.conf.d/docker-clean &&     apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -294,7 +374,10 @@ mod tests {
             "    --mount=type=cache,target=/var/lib/apt \\",
             "    apt-get update && apt-get install foo",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -306,7 +389,10 @@ mod tests {
             "    rm -f /etc/apt/apt.conf.d/docker-clean && \\",
             "    apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -318,7 +404,10 @@ mod tests {
             "RUN --mount=type=cache,target=/var/lib/apt \\",
             "    apt-get update && apt-get install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -331,7 +420,10 @@ mod tests {
             "  --mount=type=tmpfs,target=/var/lib/apt \\",
             "  apt-get update",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -344,7 +436,10 @@ mod tests {
             "  --mount=type=cache,target=/var/lib/apt \\",
             "  apt-get update",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -357,7 +452,10 @@ mod tests {
             "  --mount=type=tmpfs,target=/var/lib/apt \\",
             "  apt-get update",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -370,18 +468,21 @@ mod tests {
             "  --mount=type=cache,target=/var/lib/apt \\",
             "  apt-get update",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
 
     #[test]
     fn apt_no_cleanup() {
-        let docker_file = [
-            "FROM scratch",
-            "RUN apt update && apt install python",
-        ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = ["FROM scratch", "RUN apt update && apt install python"];
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -392,7 +493,10 @@ mod tests {
             "FROM scratch",
             "RUN apt update && apt install python && rm -rf /var/lib/apt/lists/*",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }
@@ -403,7 +507,10 @@ mod tests {
             "FROM scratch",
             "RUN aptitude update && aptitude install python",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches("DL3009", &docker_file);
         on_build_rule_catches("DL3009", &docker_file);
     }
@@ -414,7 +521,10 @@ mod tests {
             "FROM scratch",
             "RUN aptitude update && aptitude install python && rm -rf /var/lib/apt/lists/*",
         ];
-        let docker_file = docker_file.iter().map(|l| format!("{l}\n")).collect::<String>();
+        let docker_file = docker_file
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
         rule_catches_not("DL3009", &docker_file);
         on_build_rule_catches_not("DL3009", &docker_file);
     }

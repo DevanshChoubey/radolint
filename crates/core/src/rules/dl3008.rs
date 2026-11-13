@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3008.hs.
 
-use crate::rule::{combine, fold_arguments, onbuild, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{self, ParsedShell};
 use dlint_syntax::*;
 
@@ -16,9 +16,10 @@ fn dl3008() -> Box<dyn Rule> {
     let severity = DLSeverity::DLWarningC;
     let message = "Pin versions in apt get install. Instead of `apt-get install <package>` use `apt-get install <package>=<version>`";
     let check = |instr: &Instruction<ParsedShell>| match instr {
-        Instruction::Run(RunArgs(args, _)) => {
-            fold_arguments(|a: &ParsedShell| apt_get_packages(a).iter().all(|p| version_fixed(p)), args)
-        }
+        Instruction::Run(RunArgs(args, _)) => fold_arguments(
+            |a: &ParsedShell| apt_get_packages(a).iter().all(|p| version_fixed(p)),
+            args,
+        ),
         _ => true,
     };
     fn version_fixed(package: &str) -> bool {
@@ -89,14 +90,26 @@ mod tests {
 
     #[test]
     fn apt_get_version_deb() {
-        rule_catches_not("DL3008", "RUN apt-get install ./wkhtmltox_0.12.5-1.bionic_amd64.deb");
-        on_build_rule_catches_not("DL3008", "RUN apt-get install ./wkhtmltox_0.12.5-1.bionic_amd64.deb");
+        rule_catches_not(
+            "DL3008",
+            "RUN apt-get install ./wkhtmltox_0.12.5-1.bionic_amd64.deb",
+        );
+        on_build_rule_catches_not(
+            "DL3008",
+            "RUN apt-get install ./wkhtmltox_0.12.5-1.bionic_amd64.deb",
+        );
     }
 
     #[test]
     fn apt_get_pinned() {
-        rule_catches_not("DL3008", "RUN apt-get -y --no-install-recommends install nodejs=0.10");
-        on_build_rule_catches_not("DL3008", "RUN apt-get -y --no-install-recommends install nodejs=0.10");
+        rule_catches_not(
+            "DL3008",
+            "RUN apt-get -y --no-install-recommends install nodejs=0.10",
+        );
+        on_build_rule_catches_not(
+            "DL3008",
+            "RUN apt-get -y --no-install-recommends install nodejs=0.10",
+        );
     }
 
     #[test]

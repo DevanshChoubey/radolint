@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3055.hs.
 
-use crate::rule::{mconcat, simple_rule, DLSeverity, LabelName, LabelSchema, LabelType, Rule};
+use crate::rule::{DLSeverity, LabelName, LabelSchema, LabelType, Rule, mconcat, simple_rule};
 use dlint_syntax::*;
 
 /// Haskell `rule`.
@@ -30,7 +30,10 @@ fn label_is_not_git_hash_rule(label: LabelName) -> Box<dyn Rule> {
 
 /// Haskell `getBadHashLabels`.
 fn get_bad_hash_labels(lbl: &str, prs: &Pairs) -> Pairs {
-    prs.iter().filter(|(l, v)| l == lbl && is_bad_hash(v)).cloned().collect()
+    prs.iter()
+        .filter(|(l, v)| l == lbl && is_bad_hash(v))
+        .cloned()
+        .collect()
 }
 
 /// Haskell `isBadHash`.
@@ -51,7 +54,8 @@ mod tests {
 
     fn cfg() -> Configuration {
         let mut c = Configuration::default();
-        c.label_schema.insert("githash".to_string(), LabelType::GitHash);
+        c.label_schema
+            .insert("githash".to_string(), LabelType::GitHash);
         c
     }
 
@@ -72,8 +76,16 @@ mod tests {
     #[test]
     fn ok_with_label_containing_long_git_hash() {
         let c = cfg();
-        rule_catches_not_with(&c, "DL3055", "LABEL githash=\"43c572f1272b6b3171dd1db9e41b7027128ce080\"");
-        on_build_rule_catches_not_with(&c, "DL3055", "LABEL githash=\"43c572f1272b6b3171dd1db9e41b7027128ce080\"");
+        rule_catches_not_with(
+            &c,
+            "DL3055",
+            "LABEL githash=\"43c572f1272b6b3171dd1db9e41b7027128ce080\"",
+        );
+        on_build_rule_catches_not_with(
+            &c,
+            "DL3055",
+            "LABEL githash=\"43c572f1272b6b3171dd1db9e41b7027128ce080\"",
+        );
     }
 
     #[test]

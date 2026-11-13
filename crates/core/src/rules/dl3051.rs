@@ -2,12 +2,17 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3051.hs.
 
 use crate::rule::LabelSchema;
-use crate::rule::{mconcat, simple_rule, DLSeverity, Rule};
+use crate::rule::{DLSeverity, Rule, mconcat, simple_rule};
 use dlint_syntax::{Instruction, Pairs};
 
 /// Haskell `rule`.
 pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {
-    mconcat(label_schema.keys().map(|k| label_is_not_empty_rule(k)).collect())
+    mconcat(
+        label_schema
+            .keys()
+            .map(|k| label_is_not_empty_rule(k))
+            .collect(),
+    )
 }
 
 /// Haskell `labelIsNotEmptyRule`.
@@ -24,7 +29,10 @@ fn label_is_not_empty_rule(label: &str) -> Box<dyn Rule> {
 
 /// Haskell `getEmptyLabels`.
 fn get_empty_labels(lbl: &str, prs: &Pairs) -> Pairs {
-    prs.iter().filter(|(l, v)| l == lbl && v.is_empty()).cloned().collect()
+    prs.iter()
+        .filter(|(l, v)| l == lbl && v.is_empty())
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -35,7 +43,8 @@ mod tests {
 
     fn cfg() -> Configuration {
         let mut c = Configuration::default();
-        c.label_schema.insert("emptylabel".to_string(), LabelType::RawText);
+        c.label_schema
+            .insert("emptylabel".to_string(), LabelType::RawText);
         c
     }
 

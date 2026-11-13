@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL4004.hs.
 
 use crate::rule::{
-    add_fail, custom_rule, empty_state, replace_with, CheckFailure, DLSeverity, Rule, RuleCode,
+    CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, replace_with,
 };
 use dlint_syntax::Instruction;
 
