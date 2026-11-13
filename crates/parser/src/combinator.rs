@@ -1244,7 +1244,10 @@ mod combinator_tests {
             })?;
             p.eof()
         };
-        assert_eq!(msg("ax", p), "unexpected 'x'\nexpecting 'b' or end of input");
+        assert_eq!(
+            msg("ax", p),
+            "unexpected 'x'\nexpecting 'b' or end of input"
+        );
     }
 
     #[test]

@@ -29,5 +29,5 @@ pub mod prelude;
 pub mod run;
 
 pub use combinator::{PResult, ParseError, Parser};
-pub use parser::{parse_file, parse_stdin, parse_text, parse_text_as};
+pub use parser::{do_parse, parse_file, parse_stdin, parse_text, parse_text_as};
 pub use prelude::DockerfileError;

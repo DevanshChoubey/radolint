@@ -100,49 +100,29 @@ fn new_stage(bi: &BaseImage, acc: Acc) -> Acc {
             opts: _,
             default_opts,
             stage_idx,
-            stage_opts,
-            stages,
+            mut stage_opts,
+            mut stages,
         } => {
-            let from_alias = |idx: i64| -> BTreeMap<i64, String> {
-                match alias {
-                    None => stages.clone(),
-                    Some(a) => {
-                        let mut m = stages.clone();
-                        m.insert(idx, a.un_image_alias.clone());
-                        m
-                    }
-                }
-            };
-            let get_list: Vec<i64> = stages
+            // Updates the maps in place: Haskell's persistent maps share structure,
+            // so copying them per FROM would make each stage cost O(stages).
+            let found = stages
                 .iter()
-                .filter(|(_, v)| **v == bi.image.image_name)
-                .map(|(k, _)| *k)
-                .collect();
-            if get_list.is_empty() {
-                let mut so = stage_opts.clone();
-                so.insert(stage_idx + 1, default_opts.clone());
-                Acc::Acc {
-                    opts: default_opts.clone(),
-                    default_opts: default_opts.clone(),
-                    stage_idx: stage_idx + 1,
-                    stage_opts: so,
-                    stages: from_alias(stage_idx + 1),
-                }
-            } else {
-                let idx = get_list[0];
-                let the_opts = match stage_opts.get(&idx) {
-                    None => default_opts.clone(),
-                    Some(o) => o.clone(),
-                };
-                let mut so = stage_opts.clone();
-                so.insert(stage_idx + 1, the_opts.clone());
-                Acc::Acc {
-                    opts: the_opts,
-                    default_opts,
-                    stage_idx: stage_idx + 1,
-                    stage_opts: so,
-                    stages: from_alias(stage_idx + 1),
-                }
+                .find(|(_, v)| **v == bi.image.image_name)
+                .map(|(k, _)| *k);
+            let the_opts = match found.and_then(|idx| stage_opts.get(&idx)) {
+                None => default_opts.clone(),
+                Some(o) => o.clone(),
+            };
+            stage_opts.insert(stage_idx + 1, the_opts.clone());
+            if let Some(a) = alias {
+                stages.insert(stage_idx + 1, a.un_image_alias.clone());
+            }
+            Acc::Acc {
+                opts: the_opts,
+                default_opts,
+                stage_idx: stage_idx + 1,
+                stage_opts,
+                stages,
             }
         }
     }
@@ -182,7 +162,7 @@ fn add_vars(vars: &[String], acc: Acc) -> Acc {
             stages,
         } => {
             let d = shell::default_shell_opts();
-            let mut env_vars = opts.env_vars.clone();
+            let mut env_vars = opts.env_vars;
             env_vars.extend(vars.iter().cloned());
             let new_opts = ShellOpts {
                 shell_name: d.shell_name,
@@ -224,7 +204,7 @@ fn set_shell(sh: &str, acc: Acc) -> Acc {
         } => {
             let new_opts = ShellOpts {
                 shell_name: sh.to_string(),
-                env_vars: opts.env_vars.clone(),
+                env_vars: opts.env_vars,
             };
             Acc::Acc {
                 stage_opts: map_update(stage_opts, stage_idx, &new_opts),
@@ -261,7 +241,7 @@ fn shell_pragma(sh: &str, acc: Acc) -> Acc {
         } => {
             let new_opts = ShellOpts {
                 shell_name: sh.to_string(),
-                env_vars: opts.env_vars.clone(),
+                env_vars: opts.env_vars,
             };
             Acc::Acc {
                 stage_opts: map_update(stage_opts, stage_idx, &new_opts),
