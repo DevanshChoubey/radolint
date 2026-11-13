@@ -942,13 +942,11 @@ impl Parser {
         p: impl Fn(&mut Parser) -> PResult<T>,
         end: impl Fn(&mut Parser) -> PResult<E>,
     ) -> PResult<Vec<T>> {
+        // parser-combinators `manyTill_`: `optional end`, then `p`. A failed `end`
+        // only leaves hints, so it never supplies the error's unexpected item.
         let mut v = vec![];
-        loop {
-            let r = self.alt(|s| end(s).map(|_| None), |s| p(s).map(Some))?;
-            match r {
-                None => break,
-                Some(x) => v.push(x),
-            }
+        while self.optional(&end)?.is_none() {
+            v.push(p(self)?);
         }
         Ok(v)
     }

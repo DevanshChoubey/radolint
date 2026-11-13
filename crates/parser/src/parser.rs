@@ -185,4 +185,15 @@ mod parser_tests {
              or spaces"
         );
     }
+
+    /// Recorded from hadolint v2.15.1: `manyTill` tries its end parser with
+    /// `optional`, so the failed `"<<"` only adds an expected item.
+    #[test]
+    fn heredoc_end_does_not_set_unexpected() {
+        let e = parse_text("RUN \\\\\n}\n\n").unwrap_err();
+        assert_eq!(
+            e.message(),
+            "unexpected newline\nexpecting \"<<\", '\\', or at least one space"
+        );
+    }
 }
