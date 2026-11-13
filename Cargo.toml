@@ -22,9 +22,9 @@ serde_yaml_ng = "0.10"
 regex = "1"
 # Tiny argv lexer so optparse-applicative error texts can be reproduced by hand.
 # ShellCheck port (our own), pinned by tag.
-shelllint-core = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
-shelllint-parser = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
-shelllint-checker = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
+shelllint-core = { git = "https://github.com/DevanshChoubey/shelllint", rev = "9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f" }
+shelllint-parser = { git = "https://github.com/DevanshChoubey/shelllint", rev = "9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f" }
+shelllint-checker = { git = "https://github.com/DevanshChoubey/shelllint", rev = "9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f" }
 
 [workspace.lints.clippy]
 type_complexity = "allow"

@@ -222,7 +222,7 @@ dependencies = [
 [[package]]
 name = "shelllint-analyzer"
 version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
+source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
 dependencies = [
  "regex",
  "rpds",
@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "shelllint-checker"
 version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
+source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
 dependencies = [
  "shelllint-analyzer",
  "shelllint-checks",
@@ -244,7 +244,7 @@ dependencies = [
 [[package]]
 name = "shelllint-checks"
 version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
+source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
 dependencies = [
  "regex",
  "shelllint-analyzer",
@@ -254,7 +254,7 @@ dependencies = [
 [[package]]
 name = "shelllint-core"
 version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
+source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
 dependencies = [
  "regex",
 ]
@@ -262,7 +262,7 @@ dependencies = [
 [[package]]
 name = "shelllint-parser"
 version = "0.2.0"
-source = "git+https://github.com/DevanshChoubey/shelllint?tag=v0.2.0#2a7fc690c24c02146cfb6d6dca34be40502709f6"
+source = "git+https://github.com/DevanshChoubey/shelllint?rev=9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f#9bd96ec52e1f2c9cb6960de0981c9895c4a4d39f"
 dependencies = [
  "shelllint-core",
 ]
