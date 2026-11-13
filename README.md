@@ -34,8 +34,27 @@ Build from source with Rust 1.93 or newer:
 cargo install --locked --git https://github.com/DevanshChoubey/radolint radolint-cli
 ```
 
-CI builds binaries for Linux (x86_64), macOS (Apple silicon) and Windows
-(x86_64) on every push.
+Or download a prebuilt binary from
+[Releases](https://github.com/DevanshChoubey/radolint/releases): static
+Linux builds (x86_64 and arm64), macOS (Apple silicon and Intel) and Windows
+(x86_64).
+
+## GitHub Action
+
+```yaml
+- uses: actions/checkout@v4
+- uses: DevanshChoubey/radolint@v0.1.0
+  with:
+    dockerfile: Dockerfile        # space-separated files or globs, e.g. "**/Dockerfile*"
+    failure-threshold: warning    # error, warning, info (default), style, ignore, none
+    ignore: DL3008 DL3013
+```
+
+Findings show up as annotations on the pull request. Other inputs: `config`,
+`format`, `output-file` (for example `format: sarif` with
+`output-file: radolint.sarif` for code scanning), `no-fail`, `extra-args` and
+`version`. The Action downloads a checksum-verified release binary, so it
+needs no Docker and works on Linux, macOS and Windows runners.
 
 ## Use it like hadolint
 
