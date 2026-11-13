@@ -1,0 +1,113 @@
+{
+  "name": "radolint",
+  "displayName": "radolint - fast Dockerfile linter (hadolint compatible)",
+  "description": "Lint Dockerfiles as you type with radolint, a fast drop-in hadolint replacement written in Rust. Same rules, config and ignore pragmas as hadolint, with ShellCheck for RUN instructions.",
+  "version": "0.1.0",
+  "publisher": "DevanshChoubey",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevanshChoubey/radolint"
+  },
+  "homepage": "https://github.com/DevanshChoubey/radolint/tree/main/editors/vscode",
+  "bugs": "https://github.com/DevanshChoubey/radolint/issues",
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "hadolint",
+    "dockerfile",
+    "containerfile",
+    "linter",
+    "shellcheck",
+    "radolint"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:dockerfile"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "radolint.lintWorkspace",
+        "title": "Lint Open Dockerfiles",
+        "category": "radolint"
+      },
+      {
+        "command": "radolint.download",
+        "title": "Download radolint Binary",
+        "category": "radolint"
+      },
+      {
+        "command": "radolint.showOutput",
+        "title": "Show Output",
+        "category": "radolint"
+      }
+    ],
+    "configuration": {
+      "title": "radolint",
+      "properties": {
+        "radolint.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Path to the radolint (or hadolint) binary. Leave empty to use radolint from PATH, or a copy the extension downloads from GitHub releases."
+        },
+        "radolint.run": {
+          "type": "string",
+          "enum": [
+            "onType",
+            "onSave"
+          ],
+          "default": "onType",
+          "description": "Lint while typing (debounced) or only when the file is saved."
+        },
+        "radolint.config": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a hadolint config file. Empty means hadolint's own lookup (.hadolint.yaml in the workspace folder and so on)."
+        },
+        "radolint.ignore": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Rule codes to ignore, for example DL3008 or SC2086."
+        },
+        "radolint.trustedRegistries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Registries allowed in FROM (DL3026), for example docker.io."
+        },
+        "radolint.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Any other hadolint flags, one per item, for example --strict-labels."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-yarn",
+    "test": "node test/run.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.4.5"
+  }
+}
