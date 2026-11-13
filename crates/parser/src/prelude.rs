@@ -72,168 +72,411 @@ impl FoundWhitespace {
 
 /// Haskell `customError`.
 pub fn custom_error<T>(p: &mut Parser, e: DockerfileError) -> PResult<T> {
-    todo!("port Prelude.hs customError")
+    p.custom_failure(e)
 }
 /// Haskell `castToSpace`.
 pub fn cast_to_space(w: FoundWhitespace) -> String {
-    todo!("port Prelude.hs castToSpace")
+    match w {
+        FoundWhitespace::FoundWhitespace => " ".to_string(),
+        FoundWhitespace::MissingWhitespace => String::new(),
+    }
 }
 /// Haskell `eol`.
 pub fn eol(p: &mut Parser) -> PResult<()> {
-    todo!("port Prelude.hs eol")
+    p.label("end of line", |p| {
+        p.some(|s| {
+            s.choice(&[
+                &|s| only_spaces1(s).map(|_| ()),
+                &|s| s.take_while1_p(None, |c| c == '\n').map(|_| ()),
+                &|s| escaped_line_breaks(s).map(|_| ()),
+            ])
+        })
+        .map(|_| ())
+    })
 }
 /// Haskell `reserved`.
 pub fn reserved(p: &mut Parser, name: &str) -> PResult<()> {
-    todo!("port Prelude.hs reserved")
+    p.label(name, |s| lexeme(s, |s| case_insensitive_string(s, name))).map(|_| ())
 }
 /// Haskell `natural`.
 pub fn natural(p: &mut Parser) -> PResult<u128> {
-    todo!("port Prelude.hs natural")
+    p.label("positive number", |s| s.decimal())
 }
 /// Haskell `fractional`.
 pub fn fractional(p: &mut Parser) -> PResult<f32> {
-    todo!("port Prelude.hs fractional")
+    p.label("fractional number", |s| s.float())
 }
 /// Haskell `commaSep`.
 pub fn comma_sep<T>(p: &mut Parser, item: impl Fn(&mut Parser) -> PResult<T>) -> PResult<Vec<T>> {
-    todo!("port Prelude.hs commaSep")
+    p.sep_by(
+        |s| {
+            let x = item(s)?;
+            whitespace(s)?;
+            Ok(x)
+        },
+        |s| symbol(s, ","),
+    )
 }
 /// Haskell `spaceSep1`.
 pub fn space_sep1<T>(p: &mut Parser, item: impl Fn(&mut Parser) -> PResult<T>) -> PResult<Vec<T>> {
-    todo!("port Prelude.hs spaceSep1")
+    p.sep_end_by1(item, only_spaces)
 }
 /// Haskell `singleQuotedString`.
 pub fn single_quoted_string(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs singleQuotedString")
+    quoted_string(p, '\'')
 }
 /// Haskell `doubleQuotedString`.
 pub fn double_quoted_string(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs doubleQuotedString")
+    quoted_string(p, '"')
 }
 /// Haskell `singleQuotedStringEscaped`.
 pub fn single_quoted_string_escaped(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs singleQuotedStringEscaped")
+    quoted_string_escaped(p, '\'')
 }
 /// Haskell `doubleQuotedStringEscaped`.
 pub fn double_quoted_string_escaped(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs doubleQuotedStringEscaped")
+    quoted_string_escaped(p, '"')
 }
 /// Haskell `quotedString`.
 pub fn quoted_string(p: &mut Parser, c: char) -> PResult<String> {
-    todo!("port Prelude.hs quotedString")
+    p.char(c)?;
+    let lit = p.many_till(|s| s.char_literal(), |s| s.char(c))?;
+    Ok(lit.into_iter().collect())
 }
 /// Haskell `quotedStringEscaped`.
 pub fn quoted_string_escaped(p: &mut Parser, q: char) -> PResult<String> {
-    todo!("port Prelude.hs quotedStringEscaped")
+    p.between(|s| s.char(q), |s| s.char(q), |s| string_with_escaped(s, &[q], None))
 }
 /// Haskell `brackets`.
 pub fn brackets<T>(p: &mut Parser, inner: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {
-    todo!("port Prelude.hs brackets")
+    p.between(
+        |s| {
+            symbol(s, "[")?;
+            whitespace(s)
+        },
+        |s| {
+            whitespace(s)?;
+            symbol(s, "]")
+        },
+        inner,
+    )
 }
 /// Haskell `untilWS`.
 pub fn until_ws(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs untilWS")
+    let s = p.many_till(|s| s.any_single(), |s| s.space_char())?;
+    Ok(s.into_iter().collect())
 }
 /// Haskell `heredocMarker`.
 pub fn heredoc_marker(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs heredocMarker")
+    p.string("<<")?;
+    p.take_while_p(Some("dash"), |c| c == '-')?;
+    let m = p.alt(
+        |s| s.try_(double_quoted_string),
+        |s| s.alt(|s| s.try_(single_quoted_string), until_ws),
+    )?;
+    p.optional(heredoc_redirect)?;
+    Ok(m)
 }
 /// Haskell `heredocRedirect`.
 pub fn heredoc_redirect(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs heredocRedirect")
+    p.alt(
+        |s| s.string("|"),
+        |s| s.alt(|s| s.string(">"), |s| s.string(">>")),
+    )?;
+    only_spaces(p)?;
+    until_eol(p, "heredoc path")
 }
 /// Haskell `heredocContent`.
 pub fn heredoc_content(p: &mut Parser, marker: &str) -> PResult<String> {
-    todo!("port Prelude.hs heredocContent")
+    let ter_eol = |s: &mut Parser| s.string(&format!("\n{marker}\n"));
+    let ter_eof = |s: &mut Parser| {
+        let t = s.string(&format!("\n{marker}"))?;
+        s.hidden(|s| s.eof())?;
+        Ok(t)
+    };
+    let termination = |s: &mut Parser| s.alt(|s| s.try_(ter_eol), ter_eof);
+    let del_eol = |s: &mut Parser| s.string(&format!("{marker}\n"));
+    let del_eof = |s: &mut Parser| {
+        let t = s.string(marker)?;
+        s.hidden(|s| s.eof())?;
+        Ok(t)
+    };
+    let delimiter = |s: &mut Parser| s.alt(|s| s.try_(del_eol), del_eof);
+    let empty_heredoc = p.observing(delimiter)?;
+    let doc: String = match empty_heredoc {
+        Err(_) => p.many_till(|s| s.any_single(), termination)?.into_iter().collect(),
+        Ok(_) => String::new(),
+    };
+    Ok(doc.trim().to_string())
 }
 /// Haskell `heredoc`.
 pub fn heredoc(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs heredoc")
+    let m = heredoc_marker(p)?;
+    heredoc_content(p, &m)
 }
 /// Haskell `untilHeredoc`.
 pub fn until_heredoc(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs untilHeredoc")
+    let chars = |s: &mut Parser| -> PResult<String> {
+        s.choice(&[
+            &|s| escaped_line_breaks(s).map(cast_to_space),
+            &|s| s.any_single_but('\n').map(|c| c.to_string()),
+        ])
+    };
+    let txt = p.many_till(chars, heredoc)?;
+    Ok(txt.concat().trim().to_string())
 }
 /// Haskell `onlySpaces`.
 pub fn only_spaces(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs onlySpaces")
+    p.take_while_p(Some("spaces"), |c| c == ' ' || c == '\t')
 }
 /// Haskell `onlySpaces1`.
 pub fn only_spaces1(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs onlySpaces1")
+    p.take_while1_p(Some("at least one space"), |c| c == ' ' || c == '\t')
 }
 /// Haskell `onlyWhitespaces`.
 pub fn only_whitespaces(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs onlyWhitespaces")
+    p.take_while_p(Some("whitespaces"), |c| c == ' ' || c == '\t' || c == '\n' || c == '\r')
 }
 /// Haskell `escapedLineBreaks`.
 pub fn escaped_line_breaks(p: &mut Parser) -> PResult<FoundWhitespace> {
-    todo!("port Prelude.hs escapedLineBreaks")
+    let breaks = p.some(|s| {
+        s.try_(|s| {
+            s.char(s.esc)?;
+            only_spaces(s)?;
+            s.take_while1_p(None, is_nl)
+        })?;
+        s.skip_many(|s| {
+            s.try_(|s| {
+                only_spaces(s)?;
+                comment(s)?;
+                s.take_while1_p(None, is_nl)
+            })
+        })?;
+        // Spaces before the next '\' have a special significance
+        // so we remembeer the fact that we found some
+        s.alt(
+            |s| only_spaces1(s).map(|_| FoundWhitespace::FoundWhitespace),
+            |_| Ok(FoundWhitespace::MissingWhitespace),
+        )
+    })?;
+    Ok(breaks.into_iter().fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
 }
 /// Haskell `escapedLineBreaks'`.
 pub fn escaped_line_breaks_(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs escapedLineBreaks'")
+    let breaks = p.some(|s| {
+        s.try_(|s| {
+            s.char(s.esc)?;
+            only_spaces(s)?;
+            s.take_while1_p(None, is_nl)
+        })?;
+        s.skip_many(|s| {
+            s.try_(|s| {
+                only_spaces(s)?;
+                comment(s)?;
+                s.take_while1_p(None, is_nl)
+            })
+        })?;
+        only_spaces1(s)
+    })?;
+    Ok(breaks.concat())
 }
 /// Haskell `foundWhitespace`.
 pub fn found_whitespace(p: &mut Parser) -> PResult<FoundWhitespace> {
-    todo!("port Prelude.hs foundWhitespace")
+    let found = p.many(|s| {
+        s.choice(&[
+            &|s| only_spaces1(s).map(|_| FoundWhitespace::FoundWhitespace),
+            &|s| escaped_line_breaks(s),
+        ])
+    })?;
+    Ok(found.into_iter().fold(FoundWhitespace::mempty(), |a, b| a.combine(b)))
 }
 /// Haskell `whitespace`.
 pub fn whitespace(p: &mut Parser) -> PResult<()> {
-    todo!("port Prelude.hs whitespace")
+    found_whitespace(p).map(|_| ())
 }
 /// Haskell `requiredWhitespace`.
 pub fn required_whitespace(p: &mut Parser) -> PResult<()> {
-    todo!("port Prelude.hs requiredWhitespace")
+    match found_whitespace(p)? {
+        FoundWhitespace::FoundWhitespace => Ok(()),
+        FoundWhitespace::MissingWhitespace => p.fail("missing whitespace"),
+    }
 }
 /// Haskell `untilEol`.
 pub fn until_eol(p: &mut Parser, name: &str) -> PResult<String> {
-    todo!("port Prelude.hs untilEol")
+    let predicate = p.many(|s| {
+        s.choice(&[
+            &|s| escaped_line_breaks(s).map(cast_to_space),
+            &|s| {
+                let esc = s.esc;
+                s.take_while1_p(Some(name), |c| c != '\n' && c != esc)
+            },
+            &|s| {
+                let esc = s.esc;
+                let r = s.take_while1_p(None, |c| c == esc)?;
+                s.not_followed_by(|s| s.char('\n'))?;
+                Ok(r)
+            },
+        ])
+    })?;
+    let res = predicate.concat();
+    if res.is_empty() {
+        return p.fail(&format!("expecting {name}"));
+    }
+    Ok(res)
 }
 /// Haskell `symbol`.
 pub fn symbol(p: &mut Parser, name: &str) -> PResult<String> {
-    todo!("port Prelude.hs symbol")
+    let x = p.string(name)?;
+    whitespace(p)?;
+    Ok(x)
 }
 /// Haskell `caseInsensitiveString`.
 pub fn case_insensitive_string(p: &mut Parser, s: &str) -> PResult<String> {
-    todo!("port Prelude.hs caseInsensitiveString")
+    p.string_ci(s)
 }
+
+fn char_choice(p: &mut Parser, qs: &[char]) -> PResult<char> {
+    match qs {
+        [] => p.empty(),
+        [c, rest @ ..] => p.alt(|s| s.char(*c), |s| char_choice(s, rest)),
+    }
+}
+
 /// Haskell `stringWithEscaped`.
 pub fn string_with_escaped(
     p: &mut Parser,
     quote_chars: &[char],
     maybe_accept_condition: Option<&dyn Fn(char) -> bool>,
 ) -> PResult<String> {
-    todo!("port Prelude.hs stringWithEscaped")
+    let accept_condition = |c: char| match maybe_accept_condition {
+        Some(f) => f(c),
+        None => true,
+    };
+    let quote_parser = |s: &mut Parser| -> PResult<String> { char_choice(s, quote_chars).map(|c| c.to_string()) };
+    let inner = |s: &mut Parser| -> PResult<String> {
+        let esc = s.esc;
+        let v = s.some(|s| {
+            s.choice(&[
+                &|s| escaped_line_breaks(s).map(cast_to_space),
+                &|s| {
+                    s.take_while1_p(None, |c| {
+                        c != esc && c != '\n' && !quote_chars.contains(&c) && accept_condition(c)
+                    })
+                },
+            ])
+        })?;
+        Ok(v.concat())
+    };
+    let sequences = p.many(|s| {
+        s.choice(&[
+            &|s| inner(s),
+            &|s| {
+                s.try_(|s| {
+                    let esc = s.esc;
+                    let r = s.take_while1_p(None, |c| c == esc)?;
+                    s.not_followed_by(|s| quote_parser(s))?;
+                    Ok(r)
+                })
+            },
+            &|s| {
+                let esc = s.esc;
+                s.string(&esc.to_string())?;
+                quote_parser(s)
+            },
+        ])
+    })?;
+    Ok(sequences.concat())
 }
 /// Haskell `lexeme`.
 pub fn lexeme<T>(p: &mut Parser, inner: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {
-    todo!("port Prelude.hs lexeme")
+    let x = inner(p)?;
+    required_whitespace(p)?;
+    Ok(x)
 }
 /// Haskell `lexeme'`.
 pub fn lexeme_<T>(p: &mut Parser, inner: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {
-    todo!("port Prelude.hs lexeme'")
+    let x = inner(p)?;
+    only_spaces(p)?;
+    Ok(x)
 }
 /// Haskell `isNl`.
 pub fn is_nl(c: char) -> bool {
-    todo!("port Prelude.hs isNl")
+    c == '\n'
 }
 /// Haskell `isSpaceNl` (`?esc` is the first argument).
 pub fn is_space_nl(esc: char, c: char) -> bool {
-    todo!("port Prelude.hs isSpaceNl")
+    c == ' ' || c == '\t' || c == '\n' || c == esc
 }
 /// Haskell `anyUnless`.
 pub fn any_unless(p: &mut Parser, predicate: &dyn Fn(char) -> bool) -> PResult<String> {
-    todo!("port Prelude.hs anyUnless")
+    p.alt(|s| some_unless(s, "", predicate), |_| Ok(String::new()))
 }
 /// Haskell `someUnless`.
 pub fn some_unless(p: &mut Parser, name: &str, predicate: &dyn Fn(char) -> bool) -> PResult<String> {
-    todo!("port Prelude.hs someUnless")
+    let res = p.many(|s| {
+        let esc = s.esc;
+        s.choice(&[
+            &|s| escaped_line_breaks(s).map(cast_to_space),
+            &|s| s.take_while1_p(Some(name), |c| !(is_space_nl(esc, c) || predicate(c))),
+            &|s| {
+                let r = s.take_while1_p(None, |c| c == esc && !predicate(c))?;
+                s.not_followed_by(|s| s.char('\n'))?;
+                Ok(r)
+            },
+        ])
+    })?;
+    if res.is_empty() {
+        return p.fail(&format!("expecting {name}"));
+    }
+    Ok(res.concat())
 }
 /// Haskell `comment`.
 pub fn comment(p: &mut Parser) -> PResult<String> {
-    todo!("port Prelude.hs comment")
+    p.char('#')?;
+    p.take_while_p(None, |c| !is_nl(c))
 }
 
 #[allow(dead_code)]
 fn _uses(_: Instruction<String>) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::combinator::run_parser;
+
+    #[test]
+    fn quoted_strings() {
+        assert_eq!(run_parser("\"a b\"", "", '\\', double_quoted_string).unwrap(), "a b");
+        assert_eq!(run_parser("'a\\'b'", "", '\\', single_quoted_string_escaped).unwrap(), "a'b");
+    }
+
+    #[test]
+    fn heredoc_basic() {
+        let r = run_parser("<<EOF\nhello\nEOF\n", "", '\\', heredoc).unwrap();
+        assert_eq!(r, "hello");
+        let r = run_parser("<<EOF\nEOF\n", "", '\\', heredoc).unwrap();
+        assert_eq!(r, "");
+    }
+
+    #[test]
+    fn escaped_breaks_and_eol() {
+        let r = run_parser("\\\n  x", "", '\\', escaped_line_breaks).unwrap();
+        assert_eq!(r, FoundWhitespace::FoundWhitespace);
+        assert!(run_parser(" \n\n", "", '\\', eol).is_ok());
+    }
+
+    #[test]
+    fn until_eol_joins_lines() {
+        let r = run_parser("ab \\\n cd\nrest", "", '\\', |p| until_eol(p, "x")).unwrap();
+        assert_eq!(r, "ab  cd");
+    }
+
+    #[test]
+    fn comma_sep_and_brackets() {
+        let r = run_parser("[ \"a\" , \"b\" ]", "", '\\', |p| {
+            brackets(p, |p| comma_sep(p, double_quoted_string))
+        })
+        .unwrap();
+        assert_eq!(r, vec!["a", "b"]);
+    }
+}

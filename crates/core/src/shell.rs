@@ -9,8 +9,11 @@
 //! Stub policy: the pure `Command` helpers are implemented; the ShellCheck-dependent functions
 //! return neutral values (no commands, no comments) with a `// TODO(port)` marker.
 
-use shelllint_core::ast::{Ast, Id};
-use shelllint_core::interface::PositionedComment;
+use shelllint_core::ast::{Ast, Id, Token};
+use shelllint_core::astlib;
+use shelllint_core::interface::{
+    PositionedComment, Severity, empty_check_spec, mocked_system_interface, new_parse_spec,
+};
 use shelllint_parser::ParseResult;
 use std::collections::BTreeSet;
 
@@ -79,9 +82,33 @@ pub fn set_shell(s: &str, opts: ShellOpts) -> ShellOpts {
 /// Haskell `shellcheck`: run ShellCheck over the script (mocked system interface, shebang from
 /// the shell name, `export VAR=1` lines for the env vars, excluding 2187/1090/1091, min severity style).
 pub fn shellcheck(opts: &ShellOpts, script: &ParsedShell) -> Vec<PositionedComment> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs shellcheck
-    let _ = (opts, script);
-    vec![]
+    let ShellOpts { shell_name: sh, env_vars: env } = opts;
+    let txt = &script.original;
+    if non_posix_shells().iter().any(|n| sh.contains(n)) || has_unsupported_shebang(txt) {
+        return vec![]; // Do no run for non-posix shells i.e. powershell, cmd.exe
+    }
+    let si = mocked_system_interface(vec![(String::new(), String::new())]);
+    let extract_shell = |s: &str| s.split_whitespace().next().unwrap_or("").to_string();
+    let print_vars: String = env
+        .iter()
+        .map(|v| format!("export {}=1", v))
+        .collect::<BTreeSet<String>>()
+        .iter()
+        .map(|l| format!("{}\n", l))
+        .collect();
+    let script_text = format!("#!{}\n{}{}", extract_shell(sh), print_vars, txt);
+    let mut spec = empty_check_spec();
+    spec.filename = String::new(); // filename can be omitted because we only want the parse results back
+    spec.script = script_text;
+    spec.check_sourced = false;
+    spec.excluded_warnings = vec![
+        2187, // exclude the warning about the ash shell not being supported
+        1090, // requires a directive (shell comment) that can't be expressed in a Dockerfile
+        1091, // requires a directive (shell comment) that can't be expressed in a Dockerfile
+    ];
+    spec.shell_type_override = None;
+    spec.min_severity = Severity::StyleC;
+    shelllint_checker::check_script(&si, &spec).comments
 }
 
 /// Haskell `nonPosixShells`.
@@ -102,29 +129,56 @@ pub fn has_unsupported_shebang(script: &str) -> bool {
 
 /// Haskell `parseShell`: parse `#!/bin/bash\n<txt>` with ShellCheck and extract the commands.
 pub fn parse_shell(txt: &str) -> ParsedShell {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs parseShell
-    ParsedShell { original: txt.to_string(), parsed: ParseResult::default(), present_commands: vec![] }
+    let si = mocked_system_interface(vec![(String::new(), String::new())]);
+    let mut spec = new_parse_spec();
+    spec.filename = String::new(); // There is no filename
+    spec.script = format!("#!/bin/bash\n{}", txt);
+    spec.check_sourced = false;
+    let parsed_result = shelllint_parser::parse_script(&si, &spec);
+
+    let extract_names = |token: Id| -> Option<Command> {
+        let n = astlib::get_command_name(&parsed_result.ast, token)?;
+        let all_args = extract_all_args(&parsed_result.ast, token);
+        let flags = get_all_flags(&all_args);
+        Some(Command { name: n, arguments: all_args, flags })
+    };
+    let commands: Vec<Command> =
+        find_commands_in_result(&parsed_result).into_iter().filter_map(extract_names).collect();
+    ParsedShell { original: txt.to_string(), parsed: parsed_result, present_commands: commands }
 }
 
 /// Haskell `findCommandsInResult` (tokens that are commands, via `ASTLib.getCommand`).
 pub fn find_commands_in_result(res: &ParseResult) -> Vec<Id> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs findCommandsInResult
-    let _ = res;
-    vec![]
+    extract_tokens_with(&|ast, t| astlib::get_command(ast, t), res)
 }
 
 /// Haskell `extractTokensWith` (pre-order walk of the root, as `doAnalysis`).
 pub fn extract_tokens_with<A>(extractor: &dyn Fn(&Ast, Id) -> Option<A>, res: &ParseResult) -> Vec<A> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs extractTokensWith
-    let _ = (extractor, res);
-    vec![]
+    match res.root {
+        None => vec![],
+        Some(script) => {
+            let mut out = vec![];
+            res.ast.analyze(
+                script,
+                &mut |t| {
+                    if let Some(x) = extractor(&res.ast, t) {
+                        out.push(x);
+                    }
+                },
+                &mut |_| {},
+            );
+            out
+        }
+    }
 }
 
 /// Haskell `findPipes`: all `T_Pipe` tokens.
 pub fn find_pipes(shell: &ParsedShell) -> Vec<Id> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs findPipes
-    let _ = shell;
-    vec![]
+    let pipes_extractor = |ast: &Ast, t: Id| match ast.get(t) {
+        Token::T_Pipe(_) => Some(t),
+        _ => None,
+    };
+    extract_tokens_with(&pipes_extractor, &shell.parsed)
 }
 
 /// Haskell `hasPipes`.
@@ -180,16 +234,40 @@ pub fn cmd_has_prefix_arg(expected_name: &str, expected_arg: &str, cmd: &Command
 
 /// Haskell `extractAllArgs`: the arguments of a `T_SimpleCommand` token (empty for other tokens).
 pub fn extract_all_args(ast: &Ast, token: Id) -> Vec<CmdPart> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs extractAllArgs
-    let _ = (ast, token);
-    vec![]
+    match ast.get(token) {
+        Token::T_SimpleCommand(_, words) if !words.is_empty() => words[1..]
+            .iter()
+            .map(|&t| CmdPart { arg: simplify(ast, t).concat(), part_id: t.0 as i64 })
+            .collect(),
+        _ => vec![],
+    }
 }
 
 /// Haskell `simplify` (modified `oversimplify` that keeps variable names).
 pub fn simplify(ast: &Ast, token: Id) -> Vec<String> {
-    // TODO(port): upstream/hadolint/src/Hadolint/Shell.hs simplify
-    let _ = (ast, token);
-    vec![]
+    let cm = |l: &[Id]| -> Vec<String> { l.iter().flat_map(|&x| simplify(ast, x)).collect() };
+    match ast.get(token) {
+        Token::T_NormalWord(l) => vec![cm(l).concat()],
+        Token::T_DoubleQuoted(l) => vec![cm(l).concat()],
+        Token::T_SingleQuoted(s) => vec![s.clone()],
+        Token::T_DollarBraced(_, t) => vec![format!("${{{}}}", simplify(ast, *t).concat())],
+        Token::T_DollarArithmetic(_) => vec!["${VAR}".to_string()],
+        Token::T_DollarExpansion(t) => vec![format!("${{{}}}", cm(t).concat())],
+        Token::T_Backticked(_) => vec!["${VAR}".to_string()],
+        Token::T_Glob(s) => vec![s.clone()],
+        Token::T_Pipeline(_, l) if l.len() == 1 => simplify(ast, l[0]),
+        Token::T_Literal(x) => vec![x.clone()],
+        Token::T_ParamSubSpecialChar(x) => vec![x.clone()],
+        Token::T_SimpleCommand(_, wds) => cm(wds),
+        Token::T_Redirecting(_, foo) => simplify(ast, *foo),
+        Token::T_DollarSingleQuoted(s) => vec![s.clone()],
+        Token::T_Annotation(_, s) => simplify(ast, *s),
+        Token::TA_Sequence(l) if l.len() == 1 => match ast.get(l[0]) {
+            Token::TA_Expansion(v) => cm(v),
+            _ => vec![],
+        },
+        _ => vec![],
+    }
 }
 
 /// Haskell `getArgs`.
@@ -286,4 +364,49 @@ pub fn is_pip_install(cmd: &Command) -> bool {
     let std = cmd.name.starts_with("pip") && !cmd.name.starts_with("pipenv") && contains(&["install"]);
     let py = cmd.name.starts_with("python") && contains(&["-m", "pip", "install"]);
     std || py
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cp(a: &str, i: i64) -> CmdPart {
+        CmdPart { arg: a.to_string(), part_id: i }
+    }
+    fn cmd(name: &str, args: Vec<CmdPart>, flags: Vec<CmdPart>) -> Command {
+        Command { name: name.to_string(), arguments: args, flags }
+    }
+
+    #[test]
+    fn get_flag_args() {
+        let c = cmd("useradd", vec![cp("12345", 2), cp("67890", 4), cp("luser", 5)], vec![cp("u", 1), cp("u", 3)]);
+        assert_eq!(get_flag_arg("u", &c), vec!["12345", "67890"]);
+        let c = cmd("useradd", vec![cp("12345", 2), cp("luser", 3)], vec![cp("u", 1)]);
+        assert_eq!(get_flag_arg("u", &c), vec!["12345"]);
+        let c = cmd("useradd", vec![cp("12345", 2), cp("luser", 3)], vec![cp("u", 1)]);
+        assert_eq!(get_flag_arg("f", &c), Vec::<String>::new());
+    }
+
+    #[test]
+    fn has_flag_spec() {
+        let c = cmd("useradd", vec![cp("luser", 1)], vec![cp("l", 0)]);
+        assert!(has_flag("l", &c));
+        let c = cmd("useradd", vec![cp("luser", 1)], vec![cp("l", 0)]);
+        assert!(!has_flag("f", &c));
+    }
+
+    #[test]
+    fn drop_flag_arg_spec() {
+        let c = cmd("npm", vec![cp("verbose", 2), cp("install", 3), cp("bla@1.0.0", 4)], vec![cp("loglevel", 1)]);
+        let res = cmd("npm", vec![cp("install", 3), cp("bla@1.0.0", 4)], vec![cp("loglevel", 1)]);
+        assert_eq!(drop_flag_arg(&["loglevel"], &c), res);
+    }
+
+    #[test]
+    fn drop_flag_arg_keeps_the_next_argument_when_the_flag_value_is_inline() {
+        let cmds = parse_shell("npm --loglevel=info install bla@1.0.0").present_commands;
+        assert_ne!(cmds, vec![]);
+        let dropped: Vec<Command> = cmds.iter().map(|c| drop_flag_arg(&["loglevel"], c)).collect();
+        assert_eq!(dropped, cmds);
+    }
 }

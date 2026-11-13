@@ -144,10 +144,64 @@ pub fn apply_partial_configuration(config: Configuration, partial: PartialConfig
 impl Configuration {
     /// `instance Pretty Configuration` (printed to stderr with `--verbose`).
     pub fn pretty(&self) -> String {
-        // TODO(port): upstream/hadolint/src/Hadolint/Config/Configuration.hs (Pretty Configuration,
-        // prettyPrintRulelist, prettyPrintRegistries, prettyPrintLabelSchema, prettyPrintList)
-        String::new()
+        // DIVERGENCE: prettyprinter's Doc is rendered directly to text; `nest 2` is applied by
+        // indenting every line after the first by the nesting amount.
+        let c = self;
+        let b = |v: bool| if v { "True" } else { "False" };
+        let formats = nest(
+            2,
+            &format!("output format:\n{}", pretty_print_list(|f| f.pretty().to_string(), &c.formats)),
+        );
+        let body = vec![
+            "Configuration:".to_string(),
+            format!("no fail: {}", b(c.no_fail)),
+            format!("no color: {}", b(c.no_color)),
+            formats,
+            format!("failure threshold: {}", c.failure_threshold.pretty()),
+            pretty_print_rulelist("error", &c.error_rules),
+            pretty_print_rulelist("warning", &c.warning_rules),
+            pretty_print_rulelist("info", &c.info_rules),
+            pretty_print_rulelist("style", &c.style_rules),
+            pretty_print_rulelist("ignore", &c.ignore_rules),
+            format!("strict labels: {}", b(c.strict_labels)),
+            pretty_print_label_schema(&c.label_schema),
+            format!("disable ignore pragma: {}", b(c.disable_ignore_pragma)),
+            pretty_print_registries(&c.allowed_registries),
+        ];
+        nest(2, &body.join("\n"))
     }
+}
+
+/// `nest n doc`: indent every line after the first by `n` spaces.
+fn nest(n: usize, doc: &str) -> String {
+    let pad = " ".repeat(n);
+    doc.split('\n').collect::<Vec<_>>().join(&format!("\n{pad}"))
+}
+
+fn pretty_print_rulelist(name: &str, lst: &[RuleCode]) -> String {
+    nest(2, &format!("override {name}:\n{}", pretty_print_list(|r| r.pretty(), lst)))
+}
+
+/// This function needs to convert the set to a list because Doc ann is not ordered.
+fn pretty_print_registries(regs: &BTreeSet<Registry>) -> String {
+    let v: Vec<&Registry> = regs.iter().collect();
+    nest(2, &format!("allowed registries:\n{}", pretty_print_list(|r| format!("- {}", r.un_registry), &v)))
+}
+
+fn pretty_print_label_schema(ls: &LabelSchema) -> String {
+    let v: Vec<(&String, &crate::rule::LabelType)> = ls.iter().collect();
+    nest(
+        2,
+        &format!("label schema:\n{}", pretty_print_list(|(n, t)| format!("{}: {}", n, t.pretty()), &v)),
+    )
+}
+
+/// pretty print a list with a custom pretty printing function for each element
+fn pretty_print_list<A, F: Fn(&A) -> String>(prnt: F, lst: &[A]) -> String {
+    if lst.is_empty() {
+        return "none".to_string();
+    }
+    lst.iter().map(|i| format!("- {}", prnt(i))).collect::<Vec<_>>().join("\n")
 }
 
 /// Haskell `instance FromYAML PartialConfiguration` (plus `OverrideConfig`), as a function over YAML text.
@@ -203,4 +257,64 @@ pub fn partial_from_yaml(text: &str) -> Result<PartialConfiguration, String> {
         p.partial_failure_threshold = Some(crate::rule::read_either_severity(s)?);
     }
     Ok(p)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn def() -> Configuration {
+        Configuration::default()
+    }
+
+    #[test]
+    fn override_default_configuration_with_empty_config() {
+        assert_eq!(apply_partial_configuration(def(), PartialConfiguration::mempty()), def());
+    }
+
+    #[test]
+    fn override_default_with_specific_configuration_no_fail() {
+        let config = PartialConfiguration { partial_no_fail: Some(true), ..Default::default() };
+        assert_eq!(apply_partial_configuration(def(), config), Configuration { no_fail: true, ..def() });
+    }
+
+    #[test]
+    fn override_default_with_specific_configuration_no_color() {
+        let config = PartialConfiguration { partial_no_color: Some(true), ..Default::default() };
+        assert_eq!(apply_partial_configuration(def(), config), Configuration { no_color: true, ..def() });
+    }
+
+    #[test]
+    fn empty_should_not_override_no_color() {
+        let config = PartialConfiguration { partial_no_color: Some(true), ..Default::default() };
+        let config2 = PartialConfiguration::default();
+        assert_eq!(
+            apply_partial_configuration(def(), config.append(config2)),
+            Configuration { no_color: true, ..def() }
+        );
+    }
+
+    #[test]
+    fn override_default_with_specific_configuration_verbose() {
+        let config = PartialConfiguration { partial_verbose: Some(true), ..Default::default() };
+        assert_eq!(apply_partial_configuration(def(), config), Configuration { verbose: true, ..def() });
+    }
+
+    #[test]
+    fn override_default_with_specific_configuration_output_format_json() {
+        let config = PartialConfiguration { partial_formats: vec![OutputFormat::Json], ..Default::default() };
+        assert_eq!(
+            apply_partial_configuration(def(), config),
+            Configuration { formats: vec![OutputFormat::Json], ..def() }
+        );
+    }
+
+    #[test]
+    fn override_default_with_specific_configuration_disable_ignore_pragma() {
+        let config = PartialConfiguration { partial_disable_ignore_pragma: Some(true), ..Default::default() };
+        assert_eq!(
+            apply_partial_configuration(def(), config),
+            Configuration { disable_ignore_pragma: true, ..def() }
+        );
+    }
 }
