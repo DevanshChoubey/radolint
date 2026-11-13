@@ -169,3 +169,44 @@ jobs:
           name: radolint-vscode
           path: editors/vscode/*.vsix
           if-no-files-found: error
+
+  action:
+    name: action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Write Dockerfiles with known findings
+        shell: bash
+        run: |
+          mkdir -p sub
+          printf 'FROM debian\nRUN apt-get install curl\n' > Dockerfile
+          printf 'FROM debian:12\nRUN cd /tmp\n' > sub/Dockerfile
+      - name: Run the action (findings, no-fail)
+        id: lint
+        uses: ./
+        with:
+          dockerfile: Dockerfile sub/Dockerfile
+          version: latest
+          no-fail: "true"
+      - name: Run the action (threshold and ignore)
+        id: strict
+        uses: ./
+        with:
+          dockerfile: Dockerfile
+          version: latest
+          failure-threshold: warning
+          ignore: DL3006,DL3008 DL3014
+      - name: Check the results
+        shell: bash
+        run: |
+          test "${{ steps.lint.outputs.exit-code }}" = 0
+          test "${{ steps.strict.outputs.exit-code }}" = 0
+          out=$("${{ steps.lint.outputs.binary }}" --no-color sub/Dockerfile || true)
+          echo "$out" | grep -q DL3003

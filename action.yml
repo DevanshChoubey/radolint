@@ -119,7 +119,10 @@ runs:
         ACTION_BIN: ${{ steps.install.outputs.binary }}
       run: |
         set -uo pipefail
-        shopt -s globstar nullglob
+        shopt -s nullglob
+        # macOS runners ship bash 3.2, which has no globstar; there `**`
+        # matches a single directory level like `*`.
+        shopt -s globstar 2>/dev/null || true
         files=()
         for pattern in $ACTION_FILES; do
           # Unquoted expansion is intentional: each pattern is a glob.
