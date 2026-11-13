@@ -195,3 +195,29 @@ jobs:
           set +e; out=$("$BIN" --no-color smoke.Dockerfile); rc=$?; set -e
           [ "$rc" -eq 1 ]
           echo "$out" | grep -q DL3008
+
+  publish-vscode:
+    name: publish the VS Code extension
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Each registry is skipped until its token is added as a repository
+    # secret: VSCE_PAT (Visual Studio Marketplace, Azure DevOps token with
+    # Marketplace > Manage scope) and OVSX_PAT (open-vsx.org).
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist-vscode
+          path: dist
+      - name: Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        run: npx --yes @vscode/vsce@4 publish --packagePath dist/*.vsix
+      - name: Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@1 publish dist/*.vsix -p "$OVSX_PAT"
+      - name: Skipped registries
+        if: env.VSCE_PAT == '' || env.OVSX_PAT == ''
+        run: echo "::notice::Add the VSCE_PAT and OVSX_PAT repository secrets to publish the extension, then re-run this job."

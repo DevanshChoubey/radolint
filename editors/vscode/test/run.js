@@ -10,6 +10,7 @@ async function main() {
   if (!bin) throw new Error("set RADOLINT_BIN to a radolint binary");
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "radolint-ws-"));
   fs.cpSync(path.join(__dirname, "fixture"), workspace, { recursive: true });
+  fs.mkdirSync(path.join(workspace, ".vscode"), { recursive: true });
   fs.writeFileSync(path.join(workspace, ".vscode", "settings.json"),
     JSON.stringify({ "radolint.path": path.resolve(bin) }));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "radolint-profile-"));
