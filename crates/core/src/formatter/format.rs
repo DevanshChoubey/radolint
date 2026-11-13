@@ -81,11 +81,9 @@ pub struct FormatResult {
 pub fn to_result(file: &str, res: Result<Failures, ParseError>) -> FormatResult {
     match res {
         Err(err) => FormatResult { file_name: file.to_string(), errors: vec![err], checks: vec![] },
-        Ok(mut c) => {
-            // DIVERGENCE: upstream uses `Seq.unstableSort` (ordering of equal-line failures is an
-            // implementation detail of Data.Sequence). A stable sort is used here; the conformance
-            // corpus is the authority on whether equal-line ordering needs to be emulated.
-            c.sort_by_key(|f| f.line);
+        Ok(c) => {
+            // Upstream `Seq.unstableSort`: equal-line order follows containers' finger-tree/pairing-heap shape.
+            let c = crate::seq_sort::unstable_sort_by_line(c);
             FormatResult { file_name: file.to_string(), errors: vec![], checks: c }
         }
     }

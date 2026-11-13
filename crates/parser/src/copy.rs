@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn supports_windows_paths() {
-        assert_ast(&["COPY C:\\\\go C:\\\\go"], vec![cp(&["C:\\go"], "C:\\go", CopyFlags {  ..Default::default() })]);
+        assert_ast(&["COPY C:\\\\go C:\\\\go"], vec![cp(&["C:\\\\go"], "C:\\\\go", CopyFlags {  ..Default::default() })]);
     }
 
     #[test]

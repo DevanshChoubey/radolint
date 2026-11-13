@@ -675,8 +675,9 @@ impl Parser {
                         Ok(x)
                     }
                     Err(e2) => {
+                        // megaparsec `pPlus`: `ncerr err' = cerr (err' <> err)`.
                         if self.offset != start {
-                            return Err(e2);
+                            return Err(PError::merge(e2, e));
                         }
                         Err(with_hints(PError::merge(e2, e), &inh))
                     }

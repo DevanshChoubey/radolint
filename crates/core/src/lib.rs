@@ -9,6 +9,7 @@ pub mod pragma;
 pub mod process;
 pub mod rule;
 pub mod rules;
+pub mod seq_sort;
 pub mod shell;
 pub mod testing;
 pub mod utils;
