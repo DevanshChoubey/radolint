@@ -1,0 +1,13 @@
+Invalid option `--bogus'
+
+Usage: averyveryverylongprogramname 
+         [-v|--version] [-c|--config FILENAME] [DOCKERFILE...] 
+         [--file-path-in-report FILEPATHINREPORT] [-o|--output OUTPUT] 
+         [--no-fail] [--no-color] [-V|--verbose] [-f|--format ARG] 
+         [--error RULECODE] [--warning RULECODE] [--info RULECODE] 
+         [--style RULECODE] [--ignore RULECODE] 
+         [--trusted-registry REGISTRY (e.g. docker.io)] 
+         [--require-label LABELSCHEMA (e.g. maintainer:text)] [--strict-labels] 
+         [--disable-ignore-pragma] [-t|--failure-threshold THRESHOLD]
+
+  Lint Dockerfile for errors and best practices

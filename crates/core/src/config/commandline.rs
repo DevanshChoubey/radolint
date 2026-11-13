@@ -26,25 +26,34 @@ pub enum CommandlineOutcome {
     Error(String),
 }
 
-/// optparse-applicative usage/help text.
-pub fn usage_text() -> String {
-    // DIVERGENCE: hand-rendered approximation of optparse-applicative's `execParser` help output
-    // (not recorded in the oracle corpus); header "hadolint - Dockerfile Linter written in Haskell".
-    const HELP: &str = "\
-hadolint - Dockerfile Linter written in Haskell
+/// The usage summary items, in optparse-applicative's order.
+const USAGE_ITEMS: &[&str] = &[
+    "[-v|--version]",
+    "[-c|--config FILENAME]",
+    "[DOCKERFILE...]",
+    "[--file-path-in-report FILEPATHINREPORT]",
+    "[-o|--output OUTPUT]",
+    "[--no-fail]",
+    "[--no-color]",
+    "[-V|--verbose]",
+    "[-f|--format ARG]",
+    "[--error RULECODE]",
+    "[--warning RULECODE]",
+    "[--info RULECODE]",
+    "[--style RULECODE]",
+    "[--ignore RULECODE]",
+    "[--trusted-registry REGISTRY (e.g. docker.io)]",
+    "[--require-label LABELSCHEMA (e.g. maintainer:text)]",
+    "[--strict-labels]",
+    "[--disable-ignore-pragma]",
+    "[-t|--failure-threshold THRESHOLD]",
+];
 
-Usage: hadolint [-v|--version] [-c|--config FILENAME] [DOCKERFILE...]
-                [--file-path-in-report FILEPATHINREPORT] [-o|--output OUTPUT]
-                [--no-fail] [--no-color] [-V|--verbose] [-f|--format ARG]
-                [--error RULECODE] [--warning RULECODE] [--info RULECODE]
-                [--style RULECODE] [--ignore RULECODE]
-                [--trusted-registry REGISTRY (e.g. docker.io)]
-                [--require-label LABELSCHEMA (e.g. maintainer:text)]
-                [--strict-labels] [--disable-ignore-pragma]
-                [-t|--failure-threshold THRESHOLD]
+/// `progDesc`, as optparse-applicative indents it.
+const PROG_DESC: &str = "  Lint Dockerfile for errors and best practices";
 
-  Lint Dockerfile for errors and best practices
-
+/// The `Available options:` section of `--help`.
+const OPTIONS_HELP: &str = "\
 Available options:
   -h,--help                Show this help text
   -v,--version             Show version
@@ -53,8 +62,8 @@ Available options:
                            The file path referenced in the generated report.
                            This only applies for the 'checkstyle',
                            'codeclimate', 'sonarqube', 'junit' and
-                           'gitlab_codeclimate' formats  and is useful when
-                           running Hadolint with Docker to set  the correct file
+                           'gitlab_codeclimate' formats and is useful when
+                           running Hadolint with Docker to set the correct file
                            path.
   -o,--output OUTPUT       Output destination file
   --no-fail                Don't exit with a failure status code when any rule
@@ -80,7 +89,7 @@ Available options:
                            format requirement `format`
   --strict-labels          Do not permit labels other than specified in
                            `label-schema`
-  --disable-ignore-pragma  Disable inline ignore pragmas  `# hadolint
+  --disable-ignore-pragma  Disable inline ignore pragmas `# hadolint
                            ignore=DLxxxx`
   -t,--failure-threshold THRESHOLD
                            Exit with failure code only when rules with a
@@ -88,12 +97,81 @@ Available options:
                            Accepted values: [error | warning | info | style |
                            ignore | none] (default: info)
 ";
-    HELP.to_string()
+
+/// The `Usage:` block for program name `prog`, laid out like
+/// optparse-applicative 0.18: items fill lines up to 80 columns, aligned after
+/// the program name unless that pushes them past column 35 (`hangAtIfOver 9
+/// 35`), in which case they start on a new line indented 9. A line that breaks
+/// keeps its trailing space.
+pub fn usage_block(prog: &str) -> String {
+    const WIDTH: usize = 80;
+    let mut out = format!("Usage: {prog} ");
+    let mut indent = out.chars().count();
+    if indent > 35 {
+        indent = 9;
+        out.push('\n');
+        out.push_str(&" ".repeat(indent));
+    }
+    let mut col = indent;
+    for (i, item) in USAGE_ITEMS.iter().enumerate() {
+        let len = item.chars().count();
+        if col > indent && col + len > WIDTH {
+            out.push('\n');
+            out.push_str(&" ".repeat(indent));
+            col = indent;
+        }
+        out.push_str(item);
+        col += len;
+        if i + 1 < USAGE_ITEMS.len() {
+            out.push(' ');
+            col += 1;
+        }
+    }
+    out
+}
+
+/// `--help` output for program name `prog`.
+// DIVERGENCE: hadolint's header reads "hadolint - Dockerfile Linter written in
+// Haskell"; this port names itself instead.
+pub fn usage_text(prog: &str) -> String {
+    format!(
+        "radolint - Dockerfile Linter written in Rust\n\n{}\n\n{PROG_DESC}\n\n{OPTIONS_HELP}",
+        usage_block(prog)
+    )
+}
+
+/// What optparse-applicative prints on stderr for a command-line error.
+pub fn error_text(prog: &str, msg: &str) -> String {
+    format!("{msg}\n\n{}\n\n{PROG_DESC}\n", usage_block(prog))
+}
+
+/// Haskell `getProgName`: the file name the binary was started as (without
+/// `.exe` on Windows).
+pub fn prog_name(argv0: Option<&str>) -> String {
+    let path = std::path::Path::new(argv0.unwrap_or("radolint"));
+    let name = if cfg!(windows)
+        && path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("exe"))
+    {
+        path.file_stem()
+    } else {
+        path.file_name()
+    };
+    name.map_or_else(
+        || "radolint".to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
 }
 
 /// Haskell `parseCommandline` run by `execParser` over `args` (without the program name).
 pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
-    // DIVERGENCE: error texts are optparse-applicative-style messages without the usage block.
+    parse_commandline_as("radolint", args)
+}
+
+/// `parse_commandline` for a binary started as `prog`. An `Error` holds only
+/// the message; `error_text` adds the usage block around it.
+pub fn parse_commandline_as(prog: &str, args: &[String]) -> CommandlineOutcome {
     let mut c = CommandlineConfig::default();
     let mut it = args.iter().peekable();
     let mut only_files = false;
@@ -126,7 +204,7 @@ pub fn parse_commandline(args: &[String]) -> CommandlineOutcome {
         let p = &mut c.configuration;
         match name.as_str() {
             "--version" | "-v" => c.show_version = true,
-            "-h" | "--help" => return CommandlineOutcome::Help(usage_text()),
+            "-h" | "--help" => return CommandlineOutcome::Help(usage_text(prog)),
             "--config" | "-c" => c.config_file = Some(value!()),
             "--file-path-in-report" => c.file_path_in_report_option = Some(value!()),
             "--output" | "-o" => c.output.push(value!()),
@@ -196,6 +274,44 @@ mod tests {
 
     fn s(v: &[&str]) -> Vec<String> {
         v.iter().map(|x| x.to_string()).collect()
+    }
+
+    // Captured from hadolint 2.15.1 run under each program name (the help
+    // header swapped for this port's).
+    #[test]
+    fn help_and_error_text_match_optparse_layout() {
+        let cases = [
+            (
+                "hadolint",
+                include_str!("testdata/help-hadolint.txt"),
+                include_str!("testdata/err-hadolint.txt"),
+            ),
+            (
+                "x",
+                include_str!("testdata/help-x.txt"),
+                include_str!("testdata/err-x.txt"),
+            ),
+            (
+                "averyveryverylongprogramname",
+                include_str!("testdata/help-averyveryverylongprogramname.txt"),
+                include_str!("testdata/err-averyveryverylongprogramname.txt"),
+            ),
+        ];
+        for (prog, help, err) in cases {
+            assert_eq!(usage_text(prog), help, "help for {prog}");
+            let CommandlineOutcome::Error(msg) = parse_commandline_as(prog, &s(&["--bogus"]))
+            else {
+                panic!("--bogus should fail");
+            };
+            assert_eq!(error_text(prog, &msg), err, "error for {prog}");
+        }
+    }
+
+    #[test]
+    fn prog_name_is_the_file_name() {
+        assert_eq!(prog_name(Some("/usr/local/bin/radolint")), "radolint");
+        assert_eq!(prog_name(Some("hadolint")), "hadolint");
+        assert_eq!(prog_name(None), "radolint");
     }
 
     fn check_commandline(args: &[&str], config: CommandlineConfig) {

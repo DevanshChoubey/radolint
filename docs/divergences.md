@@ -27,8 +27,17 @@ keeps checking the file. See the `// DIVERGENCE:` comment in
 ## ShellCheck findings follow a newer ShellCheck
 
 hadolint v2.15.1 links the ShellCheck 0.11.0 release. radolint runs `RUN`
-scripts through shelllint v0.2.0, a port of ShellCheck v0.11.0-171-ge11f964,
+scripts through shelllint v0.2.1, a port of ShellCheck v0.11.0-171-ge11f964,
 so checks changed in those 171 commits can report differently. For example,
 upstream commit 776ed08 ("issue SC2114 against glob") makes `rm -r /*` report
 SC2114 ("deletes a system directory") where hadolint reports SC2115. Every
 ShellCheck case in the conformance corpus matches.
+
+## The `--help` header names radolint
+
+hadolint's `--help` starts with `hadolint - Dockerfile Linter written in
+Haskell`; radolint's starts with `radolint - Dockerfile Linter written in
+Rust`. The rest of `--help` and the usage errors are laid out exactly as
+optparse-applicative lays them out, under whatever name the binary is started
+as. Inline pragmas keep hadolint's spelling
+(`# hadolint ignore=DL3008`), so existing Dockerfiles need no changes.

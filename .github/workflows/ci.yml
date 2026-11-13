@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  # Keep in sync with rust-version in Cargo.toml.
+  MSRV: "1.93"
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --no-self-update
+          rustup default stable
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy --no-self-update
+          rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: test (${{ matrix.os }}, ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, toolchain: stable }
+          - { os: ubuntu-latest, toolchain: msrv }
+          - { os: macos-latest, toolchain: stable }
+          - { os: windows-latest, toolchain: stable }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          tc="${{ matrix.toolchain }}"
+          if [ "$tc" = msrv ]; then tc="$MSRV"; fi
+          rustup toolchain install "$tc" --profile minimal --no-self-update
+          rustup default "$tc"
+          rustc --version
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.toolchain }}
+      # Every ShellCheck run gets a thread with a 512 MB stack, so keep test
+      # parallelism low.
+      - run: cargo test --workspace --locked -- --test-threads=2
+
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, exe: radolint }
+          - { os: macos-latest, target: aarch64-apple-darwin, exe: radolint }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: radolint.exe }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }} --no-self-update
+          rustup default stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo build --release --locked -p radolint-cli --target ${{ matrix.target }}
+      - name: Smoke test
+        run: |
+          bin=target/${{ matrix.target }}/release/${{ matrix.exe }}
+          "$bin" --version
+          printf 'FROM debian\nRUN apt-get install curl\n' > smoke.Dockerfile
+          set +e
+          out=$("$bin" --no-color smoke.Dockerfile)
+          rc=$?
+          set -e
+          echo "$out"
+          test "$rc" -eq 1
+          echo "$out" | grep -q DL3006
+          echo "$out" | grep -q DL3008
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: radolint-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          if-no-files-found: error

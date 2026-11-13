@@ -4,7 +4,11 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "hadolint command line (port of app/Main.hs)"
+repository.workspace = true
+description = "Fast Dockerfile linter: a drop-in hadolint replacement written in Rust"
+keywords = ["hadolint", "dockerfile", "linter", "lint", "shellcheck"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "../../README.md"
 
 [[bin]]
 name = "radolint"

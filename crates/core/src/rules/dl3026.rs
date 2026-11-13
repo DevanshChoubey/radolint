@@ -110,7 +110,7 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
                 }
             }
             Instruction::Run(RunArgs(_, RunFlags { mount: m, .. })) => {
-                if m.iter().find(|x| !check_mount(&st.state, x)).is_none() {
+                if m.iter().all(|x| check_mount(&st.state, x)) {
                     st
                 } else {
                     add_fail(fail(line), st)

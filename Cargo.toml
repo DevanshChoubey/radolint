@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.93"
 license = "GPL-3.0-only"
+repository = "https://github.com/DevanshChoubey/radolint"
 
-# NOTE: the crate prefix `radolint` is a placeholder and will be renamed later.
 [workspace.dependencies]
 radolint-syntax = { path = "crates/syntax" }
 radolint-parser = { path = "crates/parser" }

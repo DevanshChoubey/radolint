@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/app/Main.hs.
 
 use radolint_core::config::commandline::{
-    CommandlineConfig, CommandlineOutcome, parse_commandline,
+    CommandlineConfig, CommandlineOutcome, error_text, parse_commandline_as, prog_name,
 };
 use radolint_core::config::configfile::get_config_from_file;
 use radolint_core::config::configuration::{
@@ -72,15 +72,17 @@ fn execute(cmd: &CommandlineConfig, config: &Configuration) -> ! {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let invoked_with = match parse_commandline(&args) {
+    let mut argv = std::env::args();
+    let prog = prog_name(argv.next().as_deref());
+    let args: Vec<String> = argv.collect();
+    let invoked_with = match parse_commandline_as(&prog, &args) {
         CommandlineOutcome::Config(c) => *c,
         CommandlineOutcome::Help(t) => {
             print!("{t}");
             exit(0)
         }
         CommandlineOutcome::Error(e) => {
-            eprintln!("{e}");
+            eprint!("{}", error_text(&prog, &e));
             exit(1)
         }
     };
