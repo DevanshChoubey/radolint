@@ -54,8 +54,10 @@ fn par_map<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync) -> Vec<R>
         .map_or(1, |n| n.get())
         .min(MAX_WORKERS)
         .min(items.len());
+    // Each worker checks all its shell scripts on one shelllint big-stack
+    // thread, rather than shelllint starting a thread per `RUN`.
     if workers <= 1 {
-        return items.into_iter().map(f).collect();
+        return shelllint_checker::with_check_stack(|| items.into_iter().map(&f).collect());
     }
     let n = items.len();
     let queue = std::sync::Mutex::new(items.into_iter().enumerate());
@@ -75,9 +77,9 @@ fn par_map<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync) -> Vec<R>
         for _ in 1..workers {
             let _ = std::thread::Builder::new()
                 .stack_size(WORKER_STACK_BYTES)
-                .spawn_scoped(s, work);
+                .spawn_scoped(s, || shelllint_checker::with_check_stack(work));
         }
-        work();
+        shelllint_checker::with_check_stack(work);
     });
     for (i, r) in done.into_inner().unwrap() {
         out[i] = Some(r);
