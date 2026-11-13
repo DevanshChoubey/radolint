@@ -246,6 +246,11 @@ fn string_pretty(xs: &[char]) -> String {
 }
 
 fn char_pretty(c: char) -> String {
+    // megaparsec `charPretty`: only a lone space is spelled out; inside a
+    // multi-character token (`stringPretty`) it stays a literal space.
+    if c == ' ' {
+        return "space".to_string();
+    }
     match char_pretty_(c) {
         Some(p) => p.to_string(),
         None => format!("'{c}'"),
@@ -286,7 +291,6 @@ fn char_pretty_(c: char) -> Option<&'static str> {
         '\u{1d}' => "group separator",
         '\u{1e}' => "record separator",
         '\u{1f}' => "unit separator",
-        ' ' => "space",
         '\u{7f}' => "delete",
         '\u{a0}' => "non-breaking space",
         _ => return None,
@@ -1243,6 +1247,13 @@ mod combinator_tests {
             p.eof()
         };
         assert_eq!(msg("ax", p), "unexpected 'x'\nexpecting 'b' or end of input");
+    }
+
+    #[test]
+    fn space_inside_token_is_literal() {
+        assert_eq!(string_pretty(&[' ']), "space");
+        assert_eq!(string_pretty(&['R', 'U', 'N', ' ']), "\"RUN \"");
+        assert_eq!(string_pretty(&['a', '\t']), "\"a<tab>\"");
     }
 
     #[test]

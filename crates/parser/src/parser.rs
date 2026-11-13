@@ -172,4 +172,17 @@ mod parser_tests {
              VOLUME, WORKDIR, a pragma, at least one space, or end of input"
         );
     }
+
+    /// Recorded from hadolint v2.15.1: a space inside a multi-character
+    /// unexpected token is printed as a literal space.
+    #[test]
+    fn healthcheck_then_run_on_continuation() {
+        let e = parse_text("HEALTHCHECK \\\nRUN wget my.xyz && curl localhost").unwrap_err();
+        assert_eq!(
+            e.message(),
+            "unexpected \"RUN \"\nexpecting \"NONE\", '#', '\\', --interval, --retries, \
+             --start-interval, --start-period, --timeout, CMD, at least one space, no flags, \
+             or spaces"
+        );
+    }
 }
