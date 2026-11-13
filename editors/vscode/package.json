@@ -2,7 +2,7 @@
   "name": "radolint",
   "displayName": "radolint - fast Dockerfile linter (hadolint compatible)",
   "description": "Lint Dockerfiles as you type with radolint, a fast drop-in hadolint replacement written in Rust. Same rules, config and ignore pragmas as hadolint, with ShellCheck for RUN instructions.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "DevanshChoubey",
   "license": "GPL-3.0-only",
   "repository": {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- GitHub Action: fix the run step on macOS runners, whose bash 3.2 has no
+  `globstar` (`**` matches one directory level there).
+- The VS Code extension downloads 0.1.1 by default.
+
 ## 0.1.0
 
 First release: a Rust port of hadolint v2.15.1.

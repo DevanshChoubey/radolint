@@ -11,7 +11,7 @@ import * as os from "os";
 import * as path from "path";
 
 const SOURCE = "radolint";
-const RELEASE_VERSION = "0.1.0";
+const RELEASE_VERSION = "0.1.1";
 const REPO = "DevanshChoubey/radolint";
 const DEBOUNCE_MS = 300;
 

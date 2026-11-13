@@ -108,7 +108,7 @@ dependencies = [
 
 [[package]]
 name = "radolint-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mimalloc",
  "radolint-core",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "radolint-conformance"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "radolint-core",
  "radolint-parser",
@@ -129,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "radolint-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "radolint-parser",
  "radolint-syntax",
@@ -144,14 +144,14 @@ dependencies = [
 
 [[package]]
 name = "radolint-parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "radolint-syntax",
 ]
 
 [[package]]
 name = "radolint-syntax"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "regex"

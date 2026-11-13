@@ -7,7 +7,7 @@ type and has quick fixes for ignore pragmas. Install the `.vsix` from the
 [latest release](https://github.com/DevanshChoubey/radolint/releases/latest):
 
 ```sh
-code --install-extension radolint-0.1.0.vsix
+code --install-extension radolint-0.1.1.vsix
 ```
 
 If you already use the hadolint extension (`exiasr.hadolint`), you can keep it

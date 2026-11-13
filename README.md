@@ -43,7 +43,7 @@ Linux builds (x86_64 and arm64), macOS (Apple silicon and Intel) and Windows
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: DevanshChoubey/radolint@v0.1.0
+- uses: DevanshChoubey/radolint@v0.1.1
   with:
     dockerfile: Dockerfile        # space-separated files or globs, e.g. "**/Dockerfile*"
     failure-threshold: warning    # error, warning, info (default), style, ignore, none
