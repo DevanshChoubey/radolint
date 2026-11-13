@@ -3,7 +3,7 @@
 
 use crate::pragma::parse_ignore_pragma;
 use crate::rule::{DLSeverity, Rule, simple_rule};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3021.hs.
 
 use crate::rule::{DLSeverity, Rule, drop_quotes, simple_rule};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

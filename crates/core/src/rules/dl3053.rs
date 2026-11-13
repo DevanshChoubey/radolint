@@ -3,7 +3,7 @@
 
 use crate::rule::LabelSchema;
 use crate::rule::*;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `rule`.
 pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {

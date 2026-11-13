@@ -6,7 +6,7 @@
 #![allow(unused_variables)]
 use crate::combinator::{PResult, Parser};
 use crate::prelude::{required_whitespace, reserved, some_unless};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `parseRegistry` (From.hs).
 pub fn parse_registry(p: &mut Parser) -> PResult<Registry> {

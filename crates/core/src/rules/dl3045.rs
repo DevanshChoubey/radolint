@@ -4,7 +4,7 @@
 use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
-use dlint_syntax::{BaseImage, CopyArgs, Instruction, Linenumber, TargetPath};
+use radolint_syntax::{BaseImage, CopyArgs, Instruction, Linenumber, TargetPath};
 use std::collections::BTreeMap;
 
 /// This data encapsulates the name of a build stage. It may be None within an

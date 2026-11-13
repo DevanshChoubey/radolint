@@ -4,7 +4,7 @@
 use super::format::{FormatResult, error_bundle_pretty, error_position, severity_text};
 use crate::meta::get_short_version;
 use crate::rule::CheckFailure;
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 use std::collections::BTreeMap;
 use std::io::Write;
 

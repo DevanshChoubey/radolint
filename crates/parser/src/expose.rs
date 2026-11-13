@@ -6,7 +6,7 @@
 #![allow(unused_variables)]
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `parseExpose` (Expose.hs).
 pub fn parse_expose(p: &mut Parser) -> PResult<Instruction<String>> {

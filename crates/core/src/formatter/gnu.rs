@@ -7,7 +7,7 @@
 
 use super::format::{FormatResult, error_position_pretty, severity_text, strip_newlines};
 use crate::rule::CheckFailure;
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 use std::io::Write;
 
 /// Haskell `hWrite`.

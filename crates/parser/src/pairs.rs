@@ -6,7 +6,7 @@
 #![allow(unused_variables)]
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `unquotedString` (Pairs.hs).
 pub fn unquoted_string(p: &mut Parser, accept_condition: &dyn Fn(char) -> bool) -> PResult<String> {

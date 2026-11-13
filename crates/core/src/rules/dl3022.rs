@@ -5,7 +5,7 @@ use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, drop_quotes,
     empty_state, modify, pipe,
 };
-use dlint_syntax::{BaseImage, CopySource, Instruction, Linenumber};
+use radolint_syntax::{BaseImage, CopySource, Instruction, Linenumber};
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

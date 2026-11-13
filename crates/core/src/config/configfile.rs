@@ -284,7 +284,7 @@ mod tests {
         let mut m = mempty();
         m.partial_allowed_registries = ["foobar.com", "barfoo.com"]
             .iter()
-            .map(|s| dlint_syntax::Registry::from(*s))
+            .map(|s| radolint_syntax::Registry::from(*s))
             .collect();
         assert_eq!(
             parse_yaml(&["trustedRegistries:", "  - foobar.com", "  - barfoo.com"]),

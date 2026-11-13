@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/src/Hadolint/Utils.hs.
 
-use dlint_syntax::{RunFlags, RunMount};
+use radolint_syntax::{RunFlags, RunMount};
 
 /// Haskell `hasCacheOrTmpfsMountWith`.
 pub fn has_cache_or_tmpfs_mount_with(frag: &str, flags: &RunFlags) -> bool {

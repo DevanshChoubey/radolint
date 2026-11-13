@@ -5,8 +5,8 @@ use crate::config::configuration::Configuration;
 use crate::formatter::format::{FormatResult, to_result};
 use crate::process;
 use crate::rule::{CheckFailure, DLSeverity, Failures, RuleCode};
-use dlint_parser::ParseError;
-use dlint_syntax::Dockerfile;
+use radolint_parser::ParseError;
+use radolint_syntax::Dockerfile;
 
 /// hadolint's RTS runs with `-N5`, so `parList` lints on at most five cores.
 const MAX_WORKERS: usize = 5;
@@ -32,7 +32,7 @@ pub fn lint_io(config: &Configuration, d_files: &[String]) -> std::io::Result<Ve
         }
     }
     Ok(par_map(inputs, |(name, source, bytes)| {
-        let res = dlint_parser::do_parse(&source, &bytes);
+        let res = radolint_parser::do_parse(&source, &bytes);
         to_result(&name, res.map(|d| analyze(config, &d)))
     }))
 }
@@ -138,7 +138,7 @@ mod tests {
                 } else {
                     "FROM a:1\n"
                 };
-                (format!("f{i}"), dlint_parser::parse_text(src))
+                (format!("f{i}"), radolint_parser::parse_text(src))
             })
             .collect();
         let expected: Vec<_> = files

@@ -6,7 +6,7 @@
 #![allow(unused_variables)]
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `data Flag` (Copy.hs, module-private upstream).
 #[derive(Debug, Clone)]

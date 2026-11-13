@@ -5,7 +5,7 @@ use crate::rule::*;
 use crate::shell;
 use crate::shell::ParsedShell;
 use crate::utils;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

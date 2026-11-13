@@ -9,7 +9,7 @@ use crate::combinator::{PResult, Parser};
 use crate::prelude::{
     DockerfileError, custom_error, double_quoted_string, required_whitespace, reserved, some_unless,
 };
-use dlint_syntax::*;
+use radolint_syntax::*;
 use std::collections::BTreeSet;
 
 /// Haskell `data RunFlag` (Run.hs, module-private upstream).

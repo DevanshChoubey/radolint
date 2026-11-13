@@ -6,7 +6,7 @@ use crate::rule::{
     fold_arguments, modify, onbuild, pipe, replace_with,
 };
 use crate::shell::{ParsedShell, find_command_names};
-use dlint_syntax::{Instruction, Linenumber, RunArgs};
+use radolint_syntax::{Instruction, Linenumber, RunArgs};
 use std::collections::BTreeSet;
 
 /// Haskell `rule`.

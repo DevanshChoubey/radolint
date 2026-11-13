@@ -169,7 +169,7 @@ mod tests {
     use crate::config::configuration::Configuration;
     use crate::lint::analyze;
     use crate::rule::{DLSeverity, RuleCode};
-    use dlint_parser::parse_text;
+    use radolint_parser::parse_text;
 
     fn cf(code: &str, line: i64) -> CheckFailure {
         CheckFailure {

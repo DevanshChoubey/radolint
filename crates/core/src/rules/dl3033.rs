@@ -4,7 +4,7 @@
 use crate::rule::*;
 use crate::shell;
 use crate::shell::ParsedShell;
-use dlint_syntax::*;
+use radolint_syntax::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Haskell `data Acc`.

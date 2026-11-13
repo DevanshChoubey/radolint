@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/app/Main.hs.
 
-use dlint_core::config::commandline::{CommandlineConfig, CommandlineOutcome, parse_commandline};
-use dlint_core::config::configfile::get_config_from_file;
-use dlint_core::config::configuration::{
+use radolint_core::config::commandline::{
+    CommandlineConfig, CommandlineOutcome, parse_commandline,
+};
+use radolint_core::config::configfile::get_config_from_file;
+use radolint_core::config::configuration::{
     Configuration, PartialConfiguration, apply_partial_configuration,
 };
-use dlint_core::config::environment::get_config_from_environment;
-use dlint_core::formatter::format::{FormatResult, OutputFormat};
-use dlint_core::formatter::write;
-use dlint_core::lint::lint_io;
-use dlint_core::meta::get_version;
-use dlint_core::rule::DLSeverity;
+use radolint_core::config::environment::get_config_from_environment;
+use radolint_core::formatter::format::{FormatResult, OutputFormat};
+use radolint_core::formatter::write;
+use radolint_core::lint::lint_io;
+use radolint_core::meta::get_version;
+use radolint_core::rule::DLSeverity;
 use std::process::exit;
 
 /// Haskell `noFailure`.

@@ -2,8 +2,8 @@
 //! Port of upstream/hadolint/src/Hadolint/Pragma.hs.
 
 use crate::rule::RuleCode;
-use dlint_parser::combinator::{PResult, Parser, run_parser};
-use dlint_syntax::{Instruction, InstructionPos};
+use radolint_parser::combinator::{PResult, Parser, run_parser};
+use radolint_syntax::{Instruction, InstructionPos};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// `Map.IntMap (Set RuleCode)`.

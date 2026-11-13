@@ -6,7 +6,7 @@
 
 #![allow(unused_variables)]
 use crate::combinator::{PResult, ParseError, Parser};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `data DockerfileError`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

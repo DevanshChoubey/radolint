@@ -14,7 +14,7 @@ parity authority, not your reading of the Haskell. Never build or run the Haskel
 - Port the file's Spec (`upstream/hadolint/test/...Spec.hs`, `upstream/language-docker/test/...`) into
   `#[cfg(test)] mod tests` in the same file, one `#[test]` per `it`, using `crate::testing`
   (`rule_catches`, `rule_catches_not`, `on_build_rule_catches(_not)`, `*_with(&config, ..)`, `assert_checks`,
-  `fails_shellcheck`, ...). Parser modules test through `dlint_parser::combinator::run_parser`.
+  `fails_shellcheck`, ...). Parser modules test through `radolint_parser::combinator::run_parser`.
 - Where Rust cannot match Haskell exactly, leave a `// DIVERGENCE: <why>` comment.
 - Parsers use the megaparsec emulation in `crates/parser/src/combinator.rs` (direct style, `&mut Parser`,
   `p.try_`, `p.alt`, `p.label`, ...); error text must match megaparsec ("unexpected ..., expecting ...").
@@ -22,11 +22,11 @@ parity authority, not your reading of the Haskell. Never build or run the Haskel
 ## Build and check (always through the slot script)
 
     cd <your copy> && scripts/cargo-slot.sh check -q -j 4 --workspace --all-targets
-    scripts/cargo-slot.sh test -q -p dlint-core <module>          # e.g. rules::dl3008
-    scripts/cargo-slot.sh test -q -p dlint-parser <module>
-    scripts/cargo-slot.sh run -q -p dlint-conformance -- --verbose --filter <id-substring>
+    scripts/cargo-slot.sh test -q -p radolint-core <module>          # e.g. rules::dl3008
+    scripts/cargo-slot.sh test -q -p radolint-parser <module>
+    scripts/cargo-slot.sh run -q -p radolint-conformance -- --verbose --filter <id-substring>
 
-`dlint-conformance` prints `pass N / fail M`; `--verbose` shows per-case diffs (exact, order-sensitive),
+`radolint-conformance` prints `pass N / fail M`; `--verbose` shows per-case diffs (exact, order-sensitive),
 `--filter` selects ids such as `rule:DL3008`. Panics from unported stubs count as failures.
 
 ## Layout

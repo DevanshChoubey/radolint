@@ -3,7 +3,7 @@
 
 use super::format::{FormatResult, error_message_line, severity_text, strip_newlines};
 use crate::rule::{CheckFailure, DLSeverity};
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 use std::io::Write;
 
 /// Haskell `formatError`.

@@ -3,7 +3,7 @@
 
 use crate::formatter::format::OutputFormat;
 use crate::rule::{DLSeverity, LabelSchema, RuleCode};
-use dlint_syntax::Registry;
+use radolint_syntax::Registry;
 use std::collections::BTreeSet;
 
 /// Haskell `Configuration`.

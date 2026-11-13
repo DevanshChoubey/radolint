@@ -4,7 +4,7 @@
 use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
-use dlint_syntax::*;
+use radolint_syntax::*;
 use std::collections::BTreeSet;
 
 /// Haskell `rule`.

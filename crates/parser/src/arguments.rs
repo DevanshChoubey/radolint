@@ -5,7 +5,7 @@
 
 #![allow(unused_variables)]
 use crate::combinator::{PResult, Parser};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 use crate::prelude::*;
 

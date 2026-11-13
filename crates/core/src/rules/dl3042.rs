@@ -7,7 +7,7 @@ use crate::rule::{
 };
 use crate::shell::{self, ParsedShell};
 use crate::utils;
-use dlint_syntax::{BaseImage, Instruction, Pairs, RunArgs};
+use radolint_syntax::{BaseImage, Instruction, Pairs, RunArgs};
 use std::collections::BTreeMap;
 
 /// This data encapsulates the name of a build stage. It may be None withing an

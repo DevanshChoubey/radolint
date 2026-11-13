@@ -3,9 +3,9 @@
 # Runs cargo in one of N build slots, each with its own target directory, so
 # several builds can run at once without sharing cargo's build-directory lock.
 # Every build is capped at 8 GB of virtual memory and 4 jobs.
-#   scripts/cargo-slot.sh check -q -p dlint-core --tests
-SLOTS=${DLINT_SLOTS:-4}
-BASE=${DLINT_TARGETS:-/media/devansh/Experiment/playground/hadolint-rust-targets}
+#   scripts/cargo-slot.sh check -q -p radolint-core --tests
+SLOTS=${RADOLINT_SLOTS:-4}
+BASE=${RADOLINT_TARGETS:-/media/devansh/Experiment/playground/hadolint-rust-targets}
 BUSY=75
 while :; do
   i=0

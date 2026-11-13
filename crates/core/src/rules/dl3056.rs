@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Rule/DL3056.hs.
 
 use crate::rule::{DLSeverity, LabelName, LabelSchema, LabelType, Rule, mconcat, simple_rule};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `rule`.
 pub fn rule(label_schema: &LabelSchema) -> Box<dyn Rule> {

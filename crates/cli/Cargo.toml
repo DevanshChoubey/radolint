@@ -1,5 +1,5 @@
 [package]
-name = "dlint-cli"
+name = "radolint-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,13 +7,13 @@ license.workspace = true
 description = "hadolint command line (port of app/Main.hs)"
 
 [[bin]]
-name = "dlint"
+name = "radolint"
 path = "src/main.rs"
 
 [dependencies]
-dlint-core.workspace = true
-dlint-syntax.workspace = true
-dlint-parser.workspace = true
+radolint-core.workspace = true
+radolint-syntax.workspace = true
+radolint-parser.workspace = true
 
 [lints]
 workspace = true

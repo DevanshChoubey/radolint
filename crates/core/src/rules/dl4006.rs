@@ -6,7 +6,7 @@ use crate::rule::{
     fold_arguments, replace_with,
 };
 use crate::shell::{self, ParsedShell};
-use dlint_syntax::{Instruction, Linenumber, RunArgs};
+use radolint_syntax::{Instruction, Linenumber, RunArgs};
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

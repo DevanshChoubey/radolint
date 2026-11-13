@@ -14,7 +14,7 @@ use crate::healthcheck::parse_healthcheck;
 use crate::pairs::{parse_env, parse_label};
 use crate::prelude::*;
 use crate::run::parse_run;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `parseShell` (Instruction.hs).
 pub fn parse_shell(p: &mut Parser) -> PResult<Instruction<String>> {

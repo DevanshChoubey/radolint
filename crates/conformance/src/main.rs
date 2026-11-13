@@ -2,21 +2,21 @@
 //! Conformance runner: replays `conformance/corpus.jsonl` through the in-process lint pipeline
 //! and compares with what the oracle (hadolint v2.15.1) printed, exactly and order-sensitively.
 //!
-//! Usage: `dlint-conformance [--verbose] [--filter <id-substring>] [--corpus <path>]`
+//! Usage: `radolint-conformance [--verbose] [--filter <id-substring>] [--corpus <path>]`
 //!
 //! A case passes when the JSON output (`--no-color -f json [args] -`) equals `oracle.json` and the
 //! TTY output (`--no-color [args] -`) equals `oracle.tty`. Cases with `oracle_forced` are also run
 //! with the forced `--error RULE` configuration against `oracle_forced.json`.
 //! Panics (e.g. `todo!()` stubs) are caught per case and counted as failures.
 
-use dlint_core::config::configuration::{
+use radolint_core::config::configuration::{
     Configuration, apply_partial_configuration, partial_from_yaml,
 };
-use dlint_core::formatter::format::{FormatResult, to_result};
-use dlint_core::formatter::{json, tty};
-use dlint_core::lint;
-use dlint_core::rule::{RuleCode, read_either_label_type};
-use dlint_syntax::Registry;
+use radolint_core::formatter::format::{FormatResult, to_result};
+use radolint_core::formatter::{json, tty};
+use radolint_core::lint;
+use radolint_core::rule::{RuleCode, read_either_label_type};
+use radolint_syntax::Registry;
 use serde_json::Value;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -105,7 +105,7 @@ fn config_from(
 /// Run the pipeline the way the CLI does for stdin input: parse errors report "/dev/stdin",
 /// checks report "-".
 fn run_case(src: &[u8], config: &Configuration) -> FormatResult {
-    let parsed = dlint_parser::parser::do_parse("/dev/stdin", src);
+    let parsed = radolint_parser::parser::do_parse("/dev/stdin", src);
     to_result("-", parsed.map(|d| lint::analyze(config, &d)))
 }
 

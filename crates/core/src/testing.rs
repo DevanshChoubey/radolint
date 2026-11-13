@@ -10,8 +10,8 @@ use crate::formatter::format::{FormatResult, OutputFormat};
 use crate::formatter::tty::format_check;
 use crate::process;
 use crate::rule::{CheckFailure, Failures, RuleCode};
-use dlint_parser::parse_text;
-use dlint_syntax::{Dockerfile, Instruction, InstructionPos};
+use radolint_parser::parse_text;
+use radolint_syntax::{Dockerfile, Instruction, InstructionPos};
 
 /// Haskell `assertChecks`: parse `dockerfile <> "\n"` and hand the failures to `make_assertions`.
 pub fn assert_checks_with<A>(

@@ -3,7 +3,7 @@
 
 use crate::rule::{DLSeverity, Rule, combine, fold_arguments, onbuild, simple_rule};
 use crate::shell::{ParsedShell, cmd_has_args, no_commands};
-use dlint_syntax::{Instruction, RunArgs};
+use radolint_syntax::{Instruction, RunArgs};
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

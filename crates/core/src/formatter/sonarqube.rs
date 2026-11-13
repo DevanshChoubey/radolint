@@ -3,7 +3,7 @@
 
 use super::format::{FormatResult, error_message, error_position};
 use crate::rule::{CheckFailure, DLSeverity};
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 use serde_json::{Value, json};
 use std::io::Write;
 

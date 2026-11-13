@@ -3,7 +3,7 @@
 
 use crate::rule::*;
 use crate::shell::ParsedShell;
-use dlint_syntax::*;
+use radolint_syntax::*;
 use std::collections::BTreeSet;
 
 /// Haskell `data StageID` (derived `Ord`: src, name, line).

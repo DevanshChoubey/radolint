@@ -5,7 +5,7 @@ use crate::rule::{
     CheckFailure, DLSeverity, Failures, Rule, RuleCode, State, empty_state, modify, pipe,
     very_custom_rule,
 };
-use dlint_syntax::{Instruction, Linenumber};
+use radolint_syntax::{Instruction, Linenumber};
 use std::collections::BTreeMap;
 
 type StageLine = Linenumber;

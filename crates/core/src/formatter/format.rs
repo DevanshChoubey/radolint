@@ -2,7 +2,7 @@
 //! Port of upstream/hadolint/src/Hadolint/Formatter/Format.hs.
 
 use crate::rule::{DLSeverity, Failures};
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 
 /// Haskell `OutputFormat` (`GitLabCodeclimateJson` etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,7 +129,7 @@ pub fn error_position_pretty(err: &ParseError) -> String {
 }
 
 /// Haskell `errorPosition`.
-pub fn error_position(err: &ParseError) -> dlint_parser::combinator::SourcePos {
+pub fn error_position(err: &ParseError) -> radolint_parser::combinator::SourcePos {
     err.position()
 }
 

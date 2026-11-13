@@ -7,7 +7,7 @@
 use crate::cmd::parse_cmd;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::*;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `data CheckFlag` (Healthcheck.hs, module-private upstream).
 #[derive(Debug, Clone)]

@@ -27,7 +27,7 @@ impl Issue {
 }
 
 /// Haskell `errorToIssue`.
-fn error_to_issue(err: &dlint_parser::ParseError) -> Issue {
+fn error_to_issue(err: &radolint_parser::ParseError) -> Issue {
     let pos = err.position();
     Issue {
         filename: pos.name.to_string(),

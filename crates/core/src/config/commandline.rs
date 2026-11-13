@@ -5,7 +5,7 @@
 use crate::config::configuration::PartialConfiguration;
 use crate::formatter::format::read_maybe_output_format;
 use crate::rule::{RuleCode, read_either_label_type, read_either_severity};
-use dlint_syntax::Registry;
+use radolint_syntax::Registry;
 
 /// Haskell `CommandlineConfig`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

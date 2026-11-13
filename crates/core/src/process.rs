@@ -6,7 +6,7 @@ use crate::pragma;
 use crate::rule::{CheckFailure, Failures, RuleCode};
 use crate::rules;
 use crate::shell::{self, ParsedShell};
-use dlint_syntax::InstructionPos;
+use radolint_syntax::InstructionPos;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Haskell `AnalisisResult`.

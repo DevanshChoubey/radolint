@@ -6,7 +6,7 @@
 use crate::arguments::arguments;
 use crate::combinator::{PResult, Parser};
 use crate::prelude::reserved;
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `parseCmd` (Cmd.hs).
 pub fn parse_cmd(p: &mut Parser) -> PResult<Instruction<String>> {

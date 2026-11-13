@@ -1,5 +1,5 @@
 [package]
-name = "dlint-parser"
+name = "radolint-parser"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 description = "Dockerfile parser (port of language-docker Language.Docker.Parser on a megaparsec-like combinator layer)"
 
 [dependencies]
-dlint-syntax.workspace = true
+radolint-syntax.workspace = true
 
 [lints]
 workspace = true

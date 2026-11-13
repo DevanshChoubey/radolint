@@ -4,7 +4,7 @@
 use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, replace_with,
 };
-use dlint_syntax::Instruction;
+use radolint_syntax::Instruction;
 
 /// Haskell `data HasEntry = HasEntry | NoEntry`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,5 +1,5 @@
 [package]
-name = "dlint-conformance"
+name = "radolint-conformance"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,13 +7,13 @@ license.workspace = true
 description = "Runs conformance/corpus.jsonl against the in-process lint pipeline"
 
 [[bin]]
-name = "dlint-conformance"
+name = "radolint-conformance"
 path = "src/main.rs"
 
 [dependencies]
-dlint-core.workspace = true
-dlint-syntax.workspace = true
-dlint-parser.workspace = true
+radolint-core.workspace = true
+radolint-syntax.workspace = true
+radolint-parser.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

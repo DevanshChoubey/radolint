@@ -6,7 +6,7 @@ use crate::rule::{
     empty_state, pipe, replace_with,
 };
 use crate::shell::ParsedShell;
-use dlint_syntax::{CopySource, Instruction, Linenumber};
+use radolint_syntax::{CopySource, Instruction, Linenumber};
 
 /// Haskell `rule`.
 pub fn rule() -> Box<dyn Rule> {

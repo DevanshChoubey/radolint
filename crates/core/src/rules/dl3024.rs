@@ -4,7 +4,7 @@
 use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, add_fail, custom_rule, empty_state, modify,
 };
-use dlint_syntax::{ImageAlias, Instruction};
+use radolint_syntax::{ImageAlias, Instruction};
 use std::collections::BTreeSet;
 
 /// Haskell `rule`.

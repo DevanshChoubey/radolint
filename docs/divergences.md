@@ -1,7 +1,7 @@
 # Divergences from hadolint
 
-dlint matches hadolint v2.15.1 output exactly on the conformance corpus. The
-cases below are where hadolint itself fails, and dlint deliberately does not.
+radolint matches hadolint v2.15.1 output exactly on the conformance corpus. The
+cases below are where hadolint itself fails, and radolint deliberately does not.
 
 ## DL3000 on a one-character relative WORKDIR
 
@@ -10,7 +10,7 @@ characters): `Data.Text.index` in `Hadolint/Rule/DL3000.hs` reads past the end
 of the text while checking for a Windows drive letter, and the process exits 1
 with a Haskell call stack instead of a report.
 
-dlint treats such a path as not absolute, so it reports DL3000 for it like any
+radolint treats such a path as not absolute, so it reports DL3000 for it like any
 other relative path and the rest of the file is still checked. See the
 `// DIVERGENCE:` comment in `crates/core/src/rules/dl3000.rs`.
 
@@ -20,13 +20,13 @@ hadolint crashes on `COPY foo bar "`: the target `"` is not empty, but after
 `dropQuotes` it is, and `Data.Text.last` in `Hadolint/Rule/DL3021.hs` fails on
 the empty text.
 
-dlint treats the empty target as not ending with `/`, so it reports DL3021 and
+radolint treats the empty target as not ending with `/`, so it reports DL3021 and
 keeps checking the file. See the `// DIVERGENCE:` comment in
 `crates/core/src/rules/dl3021.rs`.
 
 ## ShellCheck findings follow a newer ShellCheck
 
-hadolint v2.15.1 links the ShellCheck 0.11.0 release. dlint runs `RUN`
+hadolint v2.15.1 links the ShellCheck 0.11.0 release. radolint runs `RUN`
 scripts through shelllint v0.2.0, a port of ShellCheck v0.11.0-171-ge11f964,
 so checks changed in those 171 commits can report differently. For example,
 upstream commit 776ed08 ("issue SC2114 against glob") makes `rm -r /*` report

@@ -21,31 +21,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "dlint-cli"
+name = "radolint-cli"
 version = "0.1.0"
 dependencies = [
- "dlint-core",
- "dlint-parser",
- "dlint-syntax",
+ "radolint-core",
+ "radolint-parser",
+ "radolint-syntax",
 ]
 
 [[package]]
-name = "dlint-conformance"
+name = "radolint-conformance"
 version = "0.1.0"
 dependencies = [
- "dlint-core",
- "dlint-parser",
- "dlint-syntax",
+ "radolint-core",
+ "radolint-parser",
+ "radolint-syntax",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "dlint-core"
+name = "radolint-core"
 version = "0.1.0"
 dependencies = [
- "dlint-parser",
- "dlint-syntax",
+ "radolint-parser",
+ "radolint-syntax",
  "regex",
  "serde",
  "serde_json",
@@ -56,14 +56,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "dlint-parser"
+name = "radolint-parser"
 version = "0.1.0"
 dependencies = [
- "dlint-syntax",
+ "radolint-syntax",
 ]
 
 [[package]]
-name = "dlint-syntax"
+name = "radolint-syntax"
 version = "0.1.0"
 
 [[package]]

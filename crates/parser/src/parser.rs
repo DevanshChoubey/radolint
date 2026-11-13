@@ -8,7 +8,7 @@
 use crate::combinator::{PResult, ParseError, Parser, run_parser};
 use crate::instruction::{parse_comment, parse_instruction};
 use crate::prelude::{eol, only_whitespaces};
-use dlint_syntax::*;
+use radolint_syntax::*;
 
 /// Haskell `contents`.
 pub fn contents<T>(p: &mut Parser, inner: impl Fn(&mut Parser) -> PResult<T>) -> PResult<T> {

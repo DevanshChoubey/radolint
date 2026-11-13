@@ -7,7 +7,7 @@ use crate::rule::{
     DLSeverity, LabelName, LabelSchema, LabelType, RuleCode, read_either_label_type,
     read_maybe_severity,
 };
-use dlint_syntax::Registry;
+use radolint_syntax::Registry;
 use std::collections::BTreeSet;
 
 /// Haskell `lookupEnv` (DIVERGENCE: non-UTF-8 values are converted lossily).

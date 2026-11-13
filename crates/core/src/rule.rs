@@ -8,7 +8,7 @@
 //! Rules are generic over `args` upstream; here they are all over `ParsedShell`.
 
 use crate::shell::ParsedShell;
-use dlint_syntax::*;
+use radolint_syntax::*;
 use serde::{Deserialize, Deserializer};
 use std::collections::BTreeMap;
 

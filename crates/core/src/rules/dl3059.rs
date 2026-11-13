@@ -6,7 +6,7 @@ use crate::rule::{
     fold_arguments, modify, pipe,
 };
 use crate::shell::ParsedShell;
-use dlint_syntax::{Instruction, Linenumber, RunArgs, RunFlags};
+use radolint_syntax::{Instruction, Linenumber, RunArgs, RunFlags};
 
 #[derive(Debug, Clone, PartialEq)]
 enum Acc {

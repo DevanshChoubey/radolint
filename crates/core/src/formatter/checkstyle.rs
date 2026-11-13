@@ -3,7 +3,7 @@
 
 use super::format::{FormatResult, error_bundle_pretty, error_position, severity_text};
 use crate::rule::{CheckFailure, DLSeverity};
-use dlint_parser::ParseError;
+use radolint_parser::ParseError;
 use std::io::Write;
 
 /// Minimal stand-in for `Text.XML.Node` (only elements without children or with nodes).

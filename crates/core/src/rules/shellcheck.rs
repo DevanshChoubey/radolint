@@ -4,7 +4,7 @@
 use crate::pragma;
 use crate::rule::*;
 use crate::shell::{self, ParsedShell, ShellOpts};
-use dlint_syntax::*;
+use radolint_syntax::*;
 use shelllint_core::interface::{PositionedComment, Severity};
 use std::collections::BTreeMap;
 
