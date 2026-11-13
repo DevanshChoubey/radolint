@@ -21,3 +21,8 @@ radolint-parser.workspace = true
 
 [lints]
 workspace = true
+
+# musl's allocator makes the static Linux release binaries several times
+# slower under threads; use mimalloc there instead.
+[target.'cfg(target_env = "musl")'.dependencies]
+mimalloc = { version = "0.1", default-features = false }

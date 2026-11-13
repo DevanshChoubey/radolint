@@ -91,9 +91,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, exe: radolint }
-          - { os: macos-latest, target: aarch64-apple-darwin, exe: radolint }
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: radolint.exe }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, exe: radolint, run: true }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, exe: radolint, musl: true, run: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, exe: radolint, musl: true, run: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, exe: radolint, run: true }
+          - { os: macos-latest, target: x86_64-apple-darwin, exe: radolint, run: false }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, exe: radolint.exe, run: true }
     defaults:
       run:
         shell: bash
@@ -108,8 +111,16 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: ${{ matrix.target }}
-      - run: cargo build --release --locked -p radolint-cli --target ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - name: Build
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CC_aarch64_unknown_linux_musl: musl-gcc
+        run: cargo build --release --locked -p radolint-cli --target ${{ matrix.target }}
       - name: Smoke test
+        if: matrix.run
         run: |
           bin=target/${{ matrix.target }}/release/${{ matrix.exe }}
           "$bin" --version

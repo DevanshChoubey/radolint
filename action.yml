@@ -1,0 +1,143 @@
+name: radolint
+description: Lint Dockerfiles with radolint, a fast drop-in hadolint replacement written in Rust. Same rules, flags, config and output as hadolint.
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  dockerfile:
+    description: Space-separated Dockerfiles or globs to check (bash globstar syntax, e.g. "Dockerfile docker/**/Dockerfile*").
+    required: false
+    default: Dockerfile
+  config:
+    description: Path to a hadolint config file. By default .hadolint.yaml is looked up like hadolint does.
+    required: false
+    default: ""
+  failure-threshold:
+    description: Fail only on findings at this severity or above - error, warning, info, style, ignore or none.
+    required: false
+    default: info
+  ignore:
+    description: Space- or comma-separated rule codes to ignore, e.g. "DL3008 DL3013".
+    required: false
+    default: ""
+  format:
+    description: Output format (tty, json, checkstyle, codeclimate, gitlab_codeclimate, gnu, codacy, sonarqube, sarif, junit). tty adds annotations to the pull request.
+    required: false
+    default: tty
+  output-file:
+    description: Write the report to this file instead of the log (for example results.sarif for code scanning).
+    required: false
+    default: ""
+  no-fail:
+    description: Never fail the step because of findings.
+    required: false
+    default: "false"
+  extra-args:
+    description: Any other radolint/hadolint flags, e.g. "--trusted-registry docker.io --strict-labels".
+    required: false
+    default: ""
+  version:
+    description: Release version to download (without the leading v). Use "latest" to follow the newest release.
+    required: false
+    default: "0.1.0"
+  repository:
+    description: GitHub repository that hosts the release assets.
+    required: false
+    default: DevanshChoubey/radolint
+
+outputs:
+  binary:
+    description: Absolute path of the downloaded radolint binary.
+    value: ${{ steps.install.outputs.binary }}
+  exit-code:
+    description: radolint's exit status (0 when nothing reached the failure threshold).
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install radolint
+      id: install
+      shell: bash
+      env:
+        ACTION_VERSION: ${{ inputs.version }}
+        ACTION_REPO: ${{ inputs.repository }}
+        ACTION_RUNNER_OS: ${{ runner.os }}
+        ACTION_RUNNER_ARCH: ${{ runner.arch }}
+        ACTION_TEMP: ${{ runner.temp }}
+      run: |
+        set -euo pipefail
+        case "$ACTION_RUNNER_OS/$ACTION_RUNNER_ARCH" in
+          Linux/X64)     target=x86_64-unknown-linux-musl;  ext=tar.gz ;;
+          Linux/ARM64)   target=aarch64-unknown-linux-musl; ext=tar.gz ;;
+          macOS/X64)     target=x86_64-apple-darwin;        ext=tar.gz ;;
+          macOS/ARM64)   target=aarch64-apple-darwin;       ext=tar.gz ;;
+          Windows/X64)   target=x86_64-pc-windows-msvc;     ext=zip ;;
+          *) echo "::error::No radolint binary for $ACTION_RUNNER_OS/$ACTION_RUNNER_ARCH"; exit 1 ;;
+        esac
+        if [ "$ACTION_VERSION" = "latest" ]; then
+          base="https://github.com/$ACTION_REPO/releases/latest/download"
+          asset="radolint-latest-${target}.${ext}"
+        else
+          base="https://github.com/$ACTION_REPO/releases/download/v$ACTION_VERSION"
+          asset="radolint-v${ACTION_VERSION}-${target}.${ext}"
+        fi
+        dir="$ACTION_TEMP/radolint"
+        rm -rf "$dir" && mkdir -p "$dir"
+        curl -fsSL --retry 3 -o "$dir/$asset" "$base/$asset"
+        curl -fsSL --retry 3 -o "$dir/SHA256SUMS" "$base/SHA256SUMS"
+        # Verify the download against the published checksum.
+        if command -v sha256sum > /dev/null; then sum="sha256sum"; else sum="shasum -a 256"; fi
+        (cd "$dir" && grep " $asset\$" SHA256SUMS | $sum -c -)
+        # Archives hold one top-level directory; flatten it so the binary sits in $dir.
+        (cd "$dir" && if [ "$ext" = zip ]; then unzip -q "$asset" && mv radolint-*/* . ; else tar -xzf "$asset" --strip-components=1; fi)
+        bin="$dir/radolint"
+        [ "$ACTION_RUNNER_OS" = Windows ] && bin="$dir/radolint.exe"
+        chmod +x "$bin" 2>/dev/null || true
+        echo "binary=$bin" >> "$GITHUB_OUTPUT"
+        echo "$dir" >> "$GITHUB_PATH"
+        "$bin" --version
+
+    - name: Register problem matcher
+      if: inputs.format == 'tty' && inputs.output-file == ''
+      shell: bash
+      run: echo "::add-matcher::${{ github.action_path }}/packaging/action/problem-matcher.json"
+
+    - name: Run radolint
+      id: run
+      shell: bash
+      env:
+        ACTION_FILES: ${{ inputs.dockerfile }}
+        ACTION_CONFIG: ${{ inputs.config }}
+        ACTION_THRESHOLD: ${{ inputs.failure-threshold }}
+        ACTION_IGNORE: ${{ inputs.ignore }}
+        ACTION_FORMAT: ${{ inputs.format }}
+        ACTION_OUTPUT: ${{ inputs.output-file }}
+        ACTION_NO_FAIL: ${{ inputs.no-fail }}
+        ACTION_EXTRA: ${{ inputs.extra-args }}
+        ACTION_BIN: ${{ steps.install.outputs.binary }}
+      run: |
+        set -uo pipefail
+        shopt -s globstar nullglob
+        files=()
+        for pattern in $ACTION_FILES; do
+          # Unquoted expansion is intentional: each pattern is a glob.
+          matches=( $pattern )
+          files+=( "${matches[@]}" )
+        done
+        if [ "${#files[@]}" -eq 0 ]; then
+          echo "::error::No Dockerfiles matched: $ACTION_FILES"
+          echo "exit-code=1" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
+        args=( --no-color --format "$ACTION_FORMAT" --failure-threshold "$ACTION_THRESHOLD" )
+        [ -n "$ACTION_CONFIG" ] && args+=( --config "$ACTION_CONFIG" )
+        [ -n "$ACTION_OUTPUT" ] && args+=( --output "$ACTION_OUTPUT" )
+        [ "$ACTION_NO_FAIL" = "true" ] && args+=( --no-fail )
+        for code in ${ACTION_IGNORE//,/ }; do args+=( --ignore "$code" ); done
+        # ACTION_EXTRA is word-split on purpose.
+        "$ACTION_BIN" "${args[@]}" $ACTION_EXTRA "${files[@]}"
+        status=$?
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+        exit "$status"

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Port of upstream/hadolint/app/Main.hs.
 
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use radolint_core::config::commandline::{
     CommandlineConfig, CommandlineOutcome, error_text, parse_commandline_as, prog_name,
 };

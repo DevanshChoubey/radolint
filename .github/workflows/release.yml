@@ -1,0 +1,176 @@
+name: Release
+
+# Builds release binaries for a pushed version tag (for example v0.1.0) and
+# publishes them, with SHA-256 checksums, as a GitHub release.
+#
+# Assets: radolint-<tag>-<target>.tar.gz (.zip on Windows), one .sha256 per
+# archive, a combined SHA256SUMS, and version-less copies
+# radolint-latest-<target>.* (listed in SHA256SUMS too) so that
+# `releases/latest/download/...` works for action.yml `version: latest` and
+# the VS Code extension.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  BIN: radolint
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, musl: true, run: true }
+          # The ubuntu-24.04-arm runner is free for public repositories only.
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, musl: true, run: true }
+          - { target: aarch64-apple-darwin, os: macos-latest, musl: false, run: true }
+          - { target: x86_64-apple-darwin, os: macos-latest, musl: false, run: false }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, musl: false, run: true }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }} --no-self-update
+          rustup default stable
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - name: Build
+        env:
+          # mimalloc (C) is built for the musl targets; musl-tools provides musl-gcc.
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CC_aarch64_unknown_linux_musl: musl-gcc
+        run: cargo build --release --locked -p radolint-cli --target ${{ matrix.target }}
+      - name: Smoke test
+        if: matrix.run
+        run: |
+          exe="target/${{ matrix.target }}/release/$BIN"
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          "$exe" --version
+          printf 'FROM debian\nRUN apt-get install curl\n' > smoke.Dockerfile
+          # Exit code 1 means findings were reported, which is the expected result.
+          set +e; out=$("$exe" --no-color smoke.Dockerfile); rc=$?; set -e
+          echo "$out"
+          [ "$rc" -eq 1 ]
+          echo "$out" | grep -q DL3008
+      - name: Package
+        id: package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="$BIN-$tag-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp LICENSE README.md CHANGELOG.md "dist/$name/"
+          if [ "${{ runner.os }}" = Windows ]; then
+            cp "target/${{ matrix.target }}/release/$BIN.exe" "dist/$name/"
+            (cd dist && 7z a -tzip "$name.zip" "$name" > /dev/null)
+            archive="$name.zip"
+          else
+            cp "target/${{ matrix.target }}/release/$BIN" "dist/$name/"
+            tar -C dist -czf "dist/$name.tar.gz" "$name"
+            archive="$name.tar.gz"
+          fi
+          cd dist
+          if command -v sha256sum > /dev/null; then
+            sha256sum "$archive" > "$archive.sha256"
+          else
+            shasum -a 256 "$archive" > "$archive.sha256"
+          fi
+          cat "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            dist/${{ steps.package.outputs.archive }}
+            dist/${{ steps.package.outputs.archive }}.sha256
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Version-less aliases and combined checksum file
+        run: |
+          set -euo pipefail
+          cd dist
+          # radolint-v1.2.3-<target>.tar.gz -> radolint-latest-<target>.tar.gz
+          for f in "$BIN-$GITHUB_REF_NAME"-*.tar.gz "$BIN-$GITHUB_REF_NAME"-*.zip; do
+            [ -f "$f" ] || continue
+            cp "$f" "$BIN-latest-${f#"$BIN-$GITHUB_REF_NAME"-}"
+          done
+          sha256sum ./*.tar.gz ./*.zip | sed 's| \./| |' | sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+      # TODO(owner): attest the archives too. Add `id-token: write` and
+      # `attestations: write` to this job's permissions, then (pinned by SHA):
+      #   - uses: actions/attest-build-provenance@<SHA> # vX.Y.Z
+      #     with:
+      #       subject-path: |
+      #         dist/*.tar.gz
+      #         dist/*.zip
+      #         dist/SHA256SUMS
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          draft: false
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+            dist/SHA256SUMS
+
+  action:
+    name: test the action (${{ matrix.os }})
+    needs: release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Write a Dockerfile with known findings
+        shell: bash
+        run: printf 'FROM debian\nRUN apt-get install curl\n' > smoke.Dockerfile
+      - name: Run the action
+        id: lint
+        uses: ./
+        with:
+          dockerfile: smoke.Dockerfile
+          version: latest
+          no-fail: "true"
+      - name: Check the result
+        shell: bash
+        env:
+          BIN: ${{ steps.lint.outputs.binary }}
+        run: |
+          set +e; out=$("$BIN" --no-color smoke.Dockerfile); rc=$?; set -e
+          [ "$rc" -eq 1 ]
+          echo "$out" | grep -q DL3008

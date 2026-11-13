@@ -34,6 +34,10 @@ too_many_arguments = "allow"
 if_same_then_else = "allow"
 large_enum_variant = "allow"
 
+[profile.release]
+lto = true
+codegen-units = 1
+
 [profile.dev.package.shelllint-parser]
 opt-level = 2
 [profile.dev.package.shelllint-core]

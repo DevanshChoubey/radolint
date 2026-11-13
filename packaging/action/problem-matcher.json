@@ -1,0 +1,31 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "radolint",
+      "pattern": [
+        {
+          "regexp": "^(.+?):(\\d+) ((?:DL|SC)\\d+) (error|warning|info|style): (.+)$",
+          "file": 1,
+          "line": 2,
+          "code": 3,
+          "severity": 4,
+          "message": 5
+        }
+      ],
+      "severity": "warning"
+    },
+    {
+      "owner": "radolint-parse-error",
+      "pattern": [
+        {
+          "regexp": "^(.+?):(\\d+):(\\d+) (unexpected .+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
+      ],
+      "severity": "error"
+    }
+  ]
+}
