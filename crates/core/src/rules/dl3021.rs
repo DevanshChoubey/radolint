@@ -25,6 +25,8 @@ pub fn rule() -> Box<dyn Rule> {
 /// Haskell `endsWithSlash`.
 pub fn ends_with_slash(t: &TargetPath) -> bool {
     let t = &t.un_target_path;
+    // DIVERGENCE: hadolint crashes (`Data.Text.last`) when the target is only
+    // quotes, e.g. `"`; an empty unquoted target does not end with `/`.
     !t.is_empty() && drop_quotes(t).ends_with('/')
 }
 

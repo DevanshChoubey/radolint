@@ -155,3 +155,21 @@ pub fn decode(txt: &[u8]) -> String {
 pub fn dos2unix(t: &str) -> String {
     t.replace("\r\n", "\n")
 }
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+
+    /// Recorded from hadolint v2.15.1: a continuation-looking line after an
+    /// instruction lists no "the rest of a new line ..." item.
+    #[test]
+    fn indented_line_after_instruction() {
+        let e = parse_text("RUN a\n && b\n").unwrap_err();
+        assert_eq!(
+            e.message(),
+            "unexpected '&'\nexpecting '#', '\\', ADD, ARG, CMD, COPY, ENTRYPOINT, ENV, EXPOSE, \
+             FROM, HEALTHCHECK, LABEL, MAINTAINER, ONBUILD, RUN, SHELL, STOPSIGNAL, USER, \
+             VOLUME, WORKDIR, a pragma, at least one space, or end of input"
+        );
+    }
+}

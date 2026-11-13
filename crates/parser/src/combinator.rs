@@ -454,16 +454,14 @@ fn concat(mut a: Hints, b: Hints) -> Hints {
     a
 }
 
-/// megaparsec `refreshLastHint`
-fn refresh_last_hint(mut hs: Hints, new: Option<ErrorItem>) -> Hints {
-    if hs.is_empty() {
-        return hs;
+/// megaparsec 9.7 `refreshHints`: no label clears the hints; a label
+/// replaces non-empty hints with itself.
+fn refresh_hints(hs: Hints, new: Option<ErrorItem>) -> Hints {
+    match new {
+        None => Vec::new(),
+        Some(_) if hs.iter().all(|h| h.is_empty()) => hs,
+        Some(n) => vec![BTreeSet::from([n])],
     }
-    hs.remove(0);
-    if let Some(n) = new {
-        hs.insert(0, BTreeSet::from([n]));
-    }
-    hs
 }
 
 /// The parser state: immutable input plus mutable offset, hints and escape character.
@@ -798,18 +796,17 @@ impl Parser {
         } else {
             Some(ErrorItem::Label(l.to_string()))
         };
-        let cl = if l.is_empty() {
-            None
-        } else {
-            Some(ErrorItem::Label(format!("the rest of {l}")))
-        };
         match f(self) {
             Ok(x) => {
                 let own = std::mem::take(&mut self.hints);
                 if self.offset == start {
-                    self.hints = concat(inh, refresh_last_hint(own, el));
+                    self.hints = concat(inh, refresh_hints(own, el));
+                } else if el.is_none() {
+                    // megaparsec 9.7 `pLabel` `cok'`: a hidden parser drops its hints,
+                    // a labelled one keeps them unchanged.
+                    self.hints = Vec::new();
                 } else {
-                    self.hints = refresh_last_hint(own, cl);
+                    self.hints = own;
                 }
                 Ok(x)
             }
@@ -1232,6 +1229,20 @@ mod combinator_tests {
             Ok(x) => format!("ok {x:?}"),
             Err(e) => e.message(),
         }
+    }
+
+    /// megaparsec 9.7 `pLabel`: after consuming input a label keeps the inner
+    /// hints as they are and adds no "the rest of ..." item.
+    #[test]
+    fn label_after_consuming_keeps_hints() {
+        let p = |p: &mut Parser| {
+            p.label("ab", |p| {
+                p.char('a')?;
+                p.optional(|p| p.char('b'))
+            })?;
+            p.eof()
+        };
+        assert_eq!(msg("ax", p), "unexpected 'x'\nexpecting 'b' or end of input");
     }
 
     #[test]

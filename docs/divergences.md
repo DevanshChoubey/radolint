@@ -13,3 +13,13 @@ with a Haskell call stack instead of a report.
 dlint treats such a path as not absolute, so it reports DL3000 for it like any
 other relative path and the rest of the file is still checked. See the
 `// DIVERGENCE:` comment in `crates/core/src/rules/dl3000.rs`.
+
+## DL3021 on a COPY target that is only quotes
+
+hadolint crashes on `COPY foo bar "`: the target `"` is not empty, but after
+`dropQuotes` it is, and `Data.Text.last` in `Hadolint/Rule/DL3021.hs` fails on
+the empty text.
+
+dlint treats the empty target as not ending with `/`, so it reports DL3021 and
+keeps checking the file. See the `// DIVERGENCE:` comment in
+`crates/core/src/rules/dl3021.rs`.
