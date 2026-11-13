@@ -1,0 +1,16 @@
+[package]
+name = "dlint-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "hadolint command line (port of app/Main.hs)"
+
+[[bin]]
+name = "dlint"
+path = "src/main.rs"
+
+[dependencies]
+dlint-core.workspace = true
+dlint-syntax.workspace = true
+dlint-parser.workspace = true

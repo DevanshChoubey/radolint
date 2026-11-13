@@ -1,0 +1,19 @@
+[package]
+name = "dlint-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Rules, config, formatters and lint pipeline (port of hadolint/src)"
+
+[dependencies]
+dlint-syntax.workspace = true
+dlint-parser.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng.workspace = true
+regex.workspace = true
+shelllint-core.workspace = true
+shelllint-parser.workspace = true
+shelllint-lib.workspace = true
+shelllint-checker.workspace = true

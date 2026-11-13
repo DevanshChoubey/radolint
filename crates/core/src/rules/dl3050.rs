@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//! Port of upstream/hadolint/src/Hadolint/Rule/DL3050.hs.
+
+use crate::rule::{no_failures, Rule};
+use crate::rule::LabelSchema;
+
+/// Haskell `rule`.
+// TODO(port): upstream/hadolint/src/Hadolint/Rule/DL3050.hs
+pub fn rule(label_schema: &LabelSchema, strict_labels: bool) -> Box<dyn Rule> {
+    no_failures()
+}

@@ -1,0 +1,9 @@
+[package]
+name = "dlint-syntax"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Dockerfile AST (port of language-docker Language.Docker.Syntax)"
+
+[dependencies]

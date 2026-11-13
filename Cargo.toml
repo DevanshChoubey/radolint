@@ -1,0 +1,40 @@
+[workspace]
+resolver = "3"
+members = ["crates/syntax", "crates/parser", "crates/core", "crates/cli", "crates/conformance"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "GPL-3.0-only"
+
+# NOTE: the crate prefix `dlint` is a placeholder and will be renamed later.
+[workspace.dependencies]
+dlint-syntax = { path = "crates/syntax" }
+dlint-parser = { path = "crates/parser" }
+dlint-core = { path = "crates/core" }
+# JSON output (formatters) and the conformance corpus.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Maintained fork of serde_yaml; used for .hadolint.yaml (Configfile.hs).
+serde_yaml_ng = "0.10"
+# Several rules use regexes (the upstream uses Text.Regex.PCRE.Heavy / Data.Text).
+regex = "1"
+# Tiny argv lexer so optparse-applicative error texts can be reproduced by hand.
+# ShellCheck port (our own), pinned by tag.
+shelllint-core = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
+shelllint-parser = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
+shelllint-lib = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
+shelllint-checker = { git = "https://github.com/DevanshChoubey/shelllint", tag = "v0.2.0" }
+
+[workspace.lints.clippy]
+type_complexity = "allow"
+enum_variant_names = "allow"
+too_many_arguments = "allow"
+
+[profile.dev.package.shelllint-parser]
+opt-level = 2
+[profile.dev.package.shelllint-core]
+opt-level = 2
+[profile.dev.package.shelllint-checker]
+opt-level = 2
