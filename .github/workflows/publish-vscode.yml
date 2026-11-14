@@ -6,8 +6,10 @@ name: Publish VS Code extension
 # Visual Studio Marketplace: Trusted Publishing (OIDC), no stored token. The
 # DevanshChoubey publisher has a policy for this repository and this
 # workflow file, so renaming the file breaks publishing.
-# Open VSX: Trusted Publishing (OIDC) as well; the DevanshChoubey namespace
-# has a trusted publisher for this repository and workflow file.
+# Open VSX: Trusted Publishing (OIDC) as well, registered per extension. Open
+# VSX only lets a trusted publisher be added once the extension exists, so a
+# first publish can use an OVSX_PAT repository secret instead; when that
+# secret is set it takes precedence. Delete it afterwards.
 
 on:
   workflow_run:
@@ -34,6 +36,7 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
       GH_TOKEN: ${{ github.token }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - name: Download the .vsix from the release
         run: |
@@ -43,4 +46,9 @@ jobs:
       - name: Visual Studio Marketplace
         run: npx --yes @vscode/vsce@4 publish --oidc --skip-duplicate --packagePath dist/*.vsix
       - name: Open VSX
-        run: npx --yes ovsx@1 publish dist/*.vsix --trusted-publishing --skip-duplicate
+        run: |
+          if [ -n "$OVSX_PAT" ]; then
+            npx --yes ovsx@1 publish dist/*.vsix --skip-duplicate -p "$OVSX_PAT"
+          else
+            npx --yes ovsx@1 publish dist/*.vsix --trusted-publishing --skip-duplicate
+          fi
