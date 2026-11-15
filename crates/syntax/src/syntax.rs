@@ -639,7 +639,12 @@ impl From<&str> for Image {
             if parts.last() == Some(&"") {
                 parts.pop();
             }
-            if parts.first().is_some_and(|p| p.contains('.')) {
+            // DIVERGENCE: hadolint needs a dot here; like the FROM parser (see
+            // `parse_port_registry`), a port or `localhost` also marks a registry, as in Docker.
+            if parts
+                .first()
+                .is_some_and(|p| p.contains('.') || p.contains(':') || *p == "localhost")
+            {
                 Image {
                     registry_name: Some(Registry::from(parts[0])),
                     image_name: parts[1..].join("/"),

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+Fixes for some of hadolint's most-reported issues. These are the first
+deliberate output differences from hadolint on inputs it does not crash on;
+each is listed in docs/divergences.md.
+
+- pre-commit: a `radolint` hook that downloads the matching release binary on
+  first use, and `radolint-system` for a radolint on `PATH`
+  (hadolint/hadolint#886).
+- FROM: a registry with a port or `localhost` (`FROM localhost:5000/app:1`)
+  parses instead of failing (hadolint/hadolint#339).
+- DL3026: a trusted registry can include a path (`gcr.io/distroless`), and
+  FROM images built from variables are expanded with the defaults of global
+  `ARG`s; an image whose registry depends on an unknown build argument is not
+  reported (hadolint/hadolint#401, hadolint/hadolint#339).
+- DL3003: a `cd` inside a `( ... )` subshell is not reported
+  (hadolint/hadolint#422).
+
 ## 0.1.1
 
 - GitHub Action: fix the run step on macOS runners, whose bash 3.2 has no

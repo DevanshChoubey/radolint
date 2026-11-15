@@ -5,7 +5,8 @@
 radolint is a line-by-line port of [hadolint](https://github.com/hadolint/hadolint)
 v2.15.1. It has the same rules, the same command line, the same
 `.hadolint.yaml` config and the same `# hadolint ignore=` pragmas, and it
-produces byte-for-byte the same output. The shell in `RUN` instructions is
+produces byte-for-byte the same output, apart from a few long-standing
+hadolint bugs it fixes (see [Fixed hadolint issues](#fixed-hadolint-issues)). The shell in `RUN` instructions is
 checked by [shelllint](https://github.com/DevanshChoubey/shelllint), a Rust
 port of ShellCheck, so there is nothing else to install.
 
@@ -25,6 +26,8 @@ Dockerfile:2 DL3014 warning: Use the `-y` switch to avoid manual input `apt-get 
   about 10 MB (hadolint's is about 55 MB).
 - **Same results.** Every finding, message, exit code and output format
   matches hadolint. Swap the binary and keep your CI config.
+- **Fewer false alarms.** Some of hadolint's most-reported bugs are fixed,
+  and a pre-commit hook works without installing anything first.
 
 ## Install
 
@@ -55,6 +58,22 @@ Findings show up as annotations on the pull request. Other inputs: `config`,
 `output-file: radolint.sarif` for code scanning), `no-fail`, `extra-args` and
 `version`. The Action downloads a checksum-verified release binary, so it
 needs no Docker and works on Linux, macOS and Windows runners.
+
+## pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/DevanshChoubey/radolint
+    rev: v0.2.0
+    hooks:
+      - id: radolint
+```
+
+The `radolint` hook downloads the checksum-verified release binary for `rev`
+on first use and caches it, so nothing (Docker, Rust, Python) needs to be
+installed beforehand. Use `id: radolint-system` instead to run a radolint
+that is already on `PATH`. Arguments work as usual, for example
+`args: [--ignore, DL3008]`.
 
 ## Use it like hadolint
 
@@ -108,8 +127,18 @@ source:
   through both tools and must give identical text and JSON output;
 - about 84,000 generated Dockerfiles were compared the same way while porting.
 
-The few places where radolint deliberately differs, all of them inputs that
-make hadolint crash, are listed in [docs/divergences.md](docs/divergences.md).
+The few places where radolint deliberately differs are listed in
+[docs/divergences.md](docs/divergences.md): inputs that make hadolint crash,
+and the hadolint bugs below.
+
+## Fixed hadolint issues
+
+| hadolint issue | What radolint does |
+|---|---|
+| [#886](https://github.com/hadolint/hadolint/issues/886) pre-commit hook needs the binary installed | The [`radolint` hook](#pre-commit) downloads it |
+| [#339](https://github.com/hadolint/hadolint/issues/339) `FROM localhost:5000/img:tag` fails to parse; `FROM $ARG` gets DL3026 | Registries with a port or `localhost` parse; FROM variables are expanded from global `ARG` defaults |
+| [#401](https://github.com/hadolint/hadolint/issues/401) trusted registries ignore paths like `gcr.io/distroless` | `--trusted-registry gcr.io/distroless` allows the images under that path |
+| [#422](https://github.com/hadolint/hadolint/issues/422) DL3003 flags `cd` in a `( ... )` subshell | A `cd` in a subshell is not reported |
 
 ## Licence
 

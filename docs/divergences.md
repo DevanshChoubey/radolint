@@ -1,7 +1,9 @@
 # Divergences from hadolint
 
 radolint matches hadolint v2.15.1 output exactly on the conformance corpus. The
-cases below are where hadolint itself fails, and radolint deliberately does not.
+cases below are where hadolint itself fails, and radolint deliberately does not:
+first inputs that crash hadolint, then long-standing hadolint bugs that
+radolint fixes. Each is marked with a `DIVERGENCE:` comment in the code.
 
 ## DL3000 on a one-character relative WORKDIR
 
@@ -41,3 +43,41 @@ Rust`. The rest of `--help` and the usage errors are laid out exactly as
 optparse-applicative lays them out, under whatever name the binary is started
 as. Inline pragmas keep hadolint's spelling
 (`# hadolint ignore=DL3008`), so existing Dockerfiles need no changes.
+
+## Registries with a port or `localhost` (hadolint/hadolint#339)
+
+hadolint only reads the first part of a FROM image as a registry when it has a
+dot, so `FROM localhost:5000/bash:1.0` is a parse error (`unexpected ':'`):
+`localhost` becomes the image and `5000/bash` its tag. radolint follows
+Docker: the first part is a registry when it has a dot, a port, or is
+`localhost`. The same rule applies to images named in `COPY --from` and
+`RUN --mount=from=`. See `parse_port_registry` in `crates/parser/src/from.rs`.
+
+## DL3026 trusted registries with a path (hadolint/hadolint#401)
+
+hadolint compares a trusted registry only with the host of the image, so
+`--trusted-registry gcr.io/distroless` never matches
+`gcr.io/distroless/base-debian10` and the only way to allow it was trusting
+all of `gcr.io`. In radolint an entry with a `/` also matches image paths at
+whole path components: `gcr.io/distroless` allows `gcr.io/distroless/base`
+but not `gcr.io/distroless-x/base`; `reg.io/team/*` works as a prefix; Docker
+Hub images are `docker.io/library/<name>` or `docker.io/<user>/<name>`.
+Entries without a `/` work exactly as in hadolint.
+
+## DL3026 on FROM images built from variables (hadolint/hadolint#339)
+
+hadolint takes the text of `FROM $BASE` as a Docker Hub image name, so with
+any trusted registry other than docker.io it reports DL3026 even when
+`ARG BASE=trusted.com/app:1` says otherwise. radolint expands `$NAME`,
+`${NAME}`, `${NAME:-word}`, `${NAME-word}`, `${NAME:+word}` and
+`${NAME+word}` with the defaults of the ARGs declared before the first FROM,
+as Docker does, and checks the result. When the registry depends on a build
+argument without a default, it cannot be known, so DL3026 is not reported.
+
+## DL3003 and `cd` in a subshell (hadolint/hadolint#422)
+
+hadolint's DL3003 documentation suggests running `cd` in a subshell, as in
+`RUN (cd /src && make) && rm -rf /src`, but the rule reports every `cd`.
+radolint does not report a `cd` inside `( ... )`, which cannot change the
+directory of the commands after it. A `cd` in a `{ ...; }` group or at the top
+level is still reported.

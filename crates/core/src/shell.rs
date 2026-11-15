@@ -426,6 +426,36 @@ pub fn using_program(prog: &str, args: &ParsedShell) -> bool {
     find_command_names(args).iter().any(|c| c == prog)
 }
 
+/// Does the script run `prog` outside a `( ... )` subshell? A command in a subshell cannot
+/// change the directory or environment of the commands after the subshell.
+pub fn using_program_outside_subshell(prog: &str, args: &ParsedShell) -> bool {
+    let res = &args.parsed;
+    let Some(root) = res.root else {
+        return false;
+    };
+    let depth = std::cell::Cell::new(0usize);
+    let found = std::cell::Cell::new(false);
+    res.ast.analyze(
+        root,
+        &mut |t| {
+            if matches!(res.ast.get(t), Token::T_Subshell(_)) {
+                depth.set(depth.get() + 1);
+            } else if depth.get() == 0
+                && astlib::get_command(&res.ast, t).is_some()
+                && astlib::get_command_name(&res.ast, t).as_deref() == Some(prog)
+            {
+                found.set(true);
+            }
+        },
+        &mut |t| {
+            if matches!(res.ast.get(t), Token::T_Subshell(_)) {
+                depth.set(depth.get() - 1);
+            }
+        },
+    );
+    found.get()
+}
+
 /// Haskell `isPipInstall`.
 pub fn is_pip_install(cmd: &Command) -> bool {
     let args = get_args(cmd);

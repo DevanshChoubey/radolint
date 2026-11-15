@@ -19,6 +19,33 @@ pub fn parse_registry(p: &mut Parser) -> PResult<Registry> {
     })
 }
 
+// DIVERGENCE: hadolint only takes the first path component as a registry when it has a dot
+// (`foo.com/`), so `FROM localhost:5000/img:1.0` fails to parse: `localhost` becomes the image
+// name and `5000/img` its tag. Docker treats the first component as a registry when it has a
+// dot, a port, or is `localhost`, so this parser is tried after `parse_registry` to accept
+// `host:port/` and `localhost/`. See docs/divergences.md.
+/// A registry without a dot: `localhost/`, `localhost:5000/` or `host:5000/`.
+pub fn parse_port_registry(p: &mut Parser) -> PResult<Registry> {
+    let host = p.take_while1_p(None, |c| c.is_ascii_alphanumeric() || c == '-' || c == '_')?;
+    let port = if host == "localhost" {
+        p.optional(registry_port)?
+    } else {
+        Some(registry_port(p)?)
+    };
+    p.char('/')?;
+    Ok(Registry {
+        un_registry: match port {
+            Some(port) => format!("{host}:{port}"),
+            None => host,
+        },
+    })
+}
+
+fn registry_port(p: &mut Parser) -> PResult<String> {
+    p.char(':')?;
+    p.take_while1_p(None, |c| c.is_ascii_digit())
+}
+
 /// Haskell `parsePlatform` (From.hs).
 pub fn parse_platform(p: &mut Parser) -> PResult<Platform> {
     p.string("--platform=")?;
@@ -87,7 +114,10 @@ pub fn parse_base_image(
 ) -> PResult<BaseImage> {
     let maybe_platform = p.alt(|s| s.try_(parse_platform).map(Some), |_| Ok(None))?;
     p.not_followed_by(|s| s.string("--"))?;
-    let reg_name = p.alt(|s| s.try_(parse_registry).map(Some), |_| Ok(None))?;
+    let reg_name = p.alt(
+        |s| s.try_(parse_registry).map(Some),
+        |s| s.alt(|s| s.try_(parse_port_registry).map(Some), |_| Ok(None)),
+    )?;
     let name = some_unless_expanded(p, "the image name with a tag", &|c| c == '@' || c == ':')?;
     let maybe_tag = p.alt(|s| tag_parser(s, &name), |_| Ok(None))?;
     let maybe_digest = p.alt(|s| s.try_(parse_digest).map(Some), |_| Ok(None))?;
@@ -292,6 +322,34 @@ mod tests {
                 img(Some("myregistry.com:5000"), "imagename"),
                 "5.12-dev"
             ))
+        );
+    }
+    #[test]
+    fn localhost_registry_with_port_and_tag() {
+        assert_eq!(
+            ast("FROM localhost:5000/bash:latest"),
+            from(tagged(img(Some("localhost:5000"), "bash"), "latest"))
+        );
+    }
+    #[test]
+    fn localhost_registry_without_port() {
+        assert_eq!(
+            ast("FROM localhost/team/app"),
+            from(untagged(img(Some("localhost"), "team/app")))
+        );
+    }
+    #[test]
+    fn dotless_registry_with_port() {
+        assert_eq!(
+            ast("FROM myreg:5000/a/b:1"),
+            from(tagged(img(Some("myreg:5000"), "a/b"), "1"))
+        );
+    }
+    #[test]
+    fn dotless_name_without_port_is_not_a_registry() {
+        assert_eq!(
+            ast("FROM localhostx/app:1"),
+            from(tagged(img(None, "localhostx/app"), "1"))
         );
     }
     #[test]
