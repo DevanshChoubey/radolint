@@ -6,9 +6,8 @@
 //!   images under that path (hadolint/hadolint#401). hadolint only compares the host part, so
 //!   such an entry never matches and `gcr.io` was the only way to trust those images.
 //! - A FROM image that uses variables, such as `FROM $BASE` or `FROM ${REG}/app`, is expanded
-//!   with the defaults of the ARGs declared before the first FROM, as Docker does. When it cannot
-//!   be expanded (an ARG without a default, or no ARG at all), the registry is unknown and the
-//!   image is not reported. hadolint takes the variable text as a Docker Hub image name and
+//!   with the defaults of the ARGs declared before the first FROM, as Docker does. When the
+//!   registry depends on an ARG without a default, it is unknown and the image is not reported. hadolint takes the variable text as a Docker Hub image name and
 //!   reports it whenever docker.io is not trusted.
 
 use crate::rule::{
@@ -40,6 +39,9 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
                 .any(|p| match_registry(&p.un_registry, registry))
         }
     };
+
+    let is_registry_allowed_from = is_registry_allowed.clone();
+    let allowed_from = allowed.clone();
 
     let is_path_allowed = {
         let allowed = allowed.clone();
@@ -108,7 +110,7 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
             match instr {
                 Instruction::Arg(name, value) if !st.state.seen_from => modify(
                     |mut s: St| {
-                        s.global_args.insert(name.clone(), value.clone());
+                        record_args(&mut s.global_args, name, value.as_deref());
                         s
                     },
                     st,
@@ -116,8 +118,23 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
                 Instruction::From(BaseImage { image, alias, .. }) => {
                     let ok = match resolve_image(image, &st.state.global_args) {
                         Some(img) => do_check(&st.state, &img),
-                        // The registry depends on a build argument we cannot know.
-                        None => true,
+                        None => match &image.registry_name {
+                            // Only the path or name is unknown (`evil.com/${ORG}/img`): the
+                            // literal registry still decides, unless a trusted entry with a
+                            // path under it could match once the variable is known.
+                            Some(r) if !r.un_registry.contains('$') => {
+                                allowed_from.is_empty()
+                                    || is_registry_allowed_from(&r.un_registry)
+                                    || allowed_from.iter().any(|a| {
+                                        a.un_registry.contains('/')
+                                            && (a.un_registry.contains('*')
+                                                || a.un_registry
+                                                    .starts_with(&format!("{}/", r.un_registry)))
+                                    })
+                            }
+                            // The registry depends on a build argument we cannot know.
+                            _ => true,
+                        },
                     };
                     let new_state = modify(
                         |mut s: St| {
@@ -238,7 +255,7 @@ fn resolve_image(img: &Image, args: &BTreeMap<String, Option<String>>) -> Option
 
 /// Expands `$NAME`, `${NAME}`, `${NAME:-word}`, `${NAME-word}`, `${NAME:+word}` and
 /// `${NAME+word}` the way BuildKit does for FROM. `None` means a value is unknown: the variable is
-/// not a global ARG, or it has no default (it can only come from `--build-arg`).
+/// an ARG without a default (it can only come from `--build-arg`). Other names are unset.
 fn expand(s: &str, args: &BTreeMap<String, Option<String>>) -> Option<String> {
     let chars: Vec<char> = s.chars().collect();
     let mut out = String::new();
@@ -279,19 +296,82 @@ fn expand(s: &str, args: &BTreeMap<String, Option<String>>) -> Option<String> {
                 continue;
             }
             let name: String = chars[start..i].iter().collect();
-            out.push_str(&lookup(&name, args)??);
+            out.push_str(&lookup(&name, args)?.unwrap_or_default());
         }
     }
     Some(out)
 }
 
-/// `Some(Some(v))`: the default; `Some(None)`: declared without a default; `None`: not declared.
+/// The value of a variable in FROM. `None`: unknown (an ARG declared without a default, which
+/// only `--build-arg` can set). `Some(None)`: unset (not a global ARG, so nothing can set it).
 fn lookup(name: &str, args: &BTreeMap<String, Option<String>>) -> Option<Option<String>> {
-    args.get(name)
-        .map(|v| v.as_ref().map(|v| unquote(v).to_string()))
+    match args.get(name) {
+        Some(v) => v.clone().map(Some),
+        None => Some(None),
+    }
+}
+
+/// Records the variables of one global `ARG` line. The parser keeps everything after the first
+/// `=` as one value, so `ARG A=x B=y` arrives as `A` = `x B=y` and is split here. Defaults that
+/// refer to earlier ARGs (`ARG IMG=${REG}/app`) are expanded now, as Docker does.
+fn record_args(args: &mut BTreeMap<String, Option<String>>, name: &str, value: Option<&str>) {
+    let mut pairs: Vec<(String, Option<String>)> = Vec::new();
+    match value {
+        None => pairs.push((name.to_string(), None)),
+        Some(v) => {
+            let mut words = split_words(v).into_iter();
+            pairs.push((name.to_string(), Some(words.next().unwrap_or_default())));
+            for w in words {
+                match w.split_once('=') {
+                    Some((k, v)) => pairs.push((k.to_string(), Some(unquote(v).to_string()))),
+                    None => pairs.push((w, None)),
+                }
+            }
+        }
+    }
+    for (k, v) in pairs {
+        let v = match v {
+            Some(v) if v.contains('$') => expand(&v, args),
+            v => v,
+        };
+        args.insert(k, v);
+    }
+}
+
+/// Splits an ARG value on unquoted whitespace, removing the quotes.
+fn split_words(v: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut cur = String::new();
+    let mut quote: Option<char> = None;
+    let mut in_word = false;
+    for c in v.chars() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            Some(_) => cur.push(c),
+            None if c == '"' || c == '\'' => {
+                quote = Some(c);
+                in_word = true;
+            }
+            None if c.is_whitespace() => {
+                if in_word {
+                    words.push(std::mem::take(&mut cur));
+                    in_word = false;
+                }
+            }
+            None => {
+                cur.push(c);
+                in_word = true;
+            }
+        }
+    }
+    if in_word {
+        words.push(cur);
+    }
+    words
 }
 
 fn unquote(v: &str) -> &str {
+    // Values are unquoted by `split_words`; this handles `K="v"` pairs split on `=`.
     for q in ['"', '\''] {
         if v.len() >= 2 && v.starts_with(q) && v.ends_with(q) {
             return &v[1..v.len() - 1];
@@ -315,19 +395,19 @@ fn expand_braced(body: &str, args: &BTreeMap<String, Option<String>>) -> Option<
     } else if let Some(w) = rest.strip_prefix('+') {
         ("+", w)
     } else if rest.is_empty() {
-        return value;
+        return Some(value.unwrap_or_default());
     } else {
         // `${NAME:?msg}` and other forms: leave the value unknown.
         return None;
     };
-    // A declared ARG without a default is unset unless `--build-arg` sets it, which we cannot
-    // know, so only a declared default makes the result certain.
-    let v = value?;
-    match op {
-        ":-" if v.is_empty() => expand(word, args),
-        ":+" if v.is_empty() => Some(String::new()),
-        ":+" | "+" => expand(word, args),
-        _ => Some(v),
+    match (op, value) {
+        (":-", None) | ("-", None) => expand(word, args),
+        (":-", Some(v)) if v.is_empty() => expand(word, args),
+        (":+", Some(v)) if !v.is_empty() => expand(word, args),
+        ("+", Some(_)) => expand(word, args),
+        (":+", _) | ("+", None) => Some(String::new()),
+        (_, None) => None,
+        (_, Some(v)) => Some(v),
     }
 }
 
@@ -580,5 +660,52 @@ mod tests {
             "DL3026",
             "ARG STAGE=build\nFROM foo.com/a:1 AS build\nFROM ${STAGE}\n",
         );
+    }
+
+    #[test]
+    fn literal_registry_is_checked_when_the_path_is_a_variable() {
+        let gcr = cfg(&["gcr.io"]);
+        rule_catches_with(&gcr, "DL3026", "ARG ORG\nFROM evil.com/${ORG}/img:1\n");
+        rule_catches_not_with(&gcr, "DL3026", "ARG ORG\nFROM gcr.io/${ORG}/img:1\n");
+        // A trusted path under the registry could match once ORG is known.
+        rule_catches_not_with(
+            &cfg(&["gcr.io/distroless"]),
+            "DL3026",
+            "ARG ORG\nFROM gcr.io/${ORG}/img:1\n",
+        );
+    }
+
+    #[test]
+    fn several_pairs_on_one_arg_line() {
+        let gcr = cfg(&["gcr.io"]);
+        rule_catches_not_with(&gcr, "DL3026", "ARG A=gcr.io B=evil.com\nFROM ${A}/a:1\n");
+        rule_catches_with(&gcr, "DL3026", "ARG A=gcr.io B=evil.com\nFROM ${B}/a:1\n");
+        rule_catches_with(
+            &gcr,
+            "DL3026",
+            "ARG A=\"gcr.io\" B='evil.com'\nFROM ${B}/a:1\n",
+        );
+        rule_catches_not_with(&gcr, "DL3026", "ARG A=gcr.io B\nFROM ${B}/a:1\n");
+    }
+
+    #[test]
+    fn undeclared_variable_is_unset() {
+        let gcr = cfg(&["gcr.io"]);
+        rule_catches_with(&gcr, "DL3026", "FROM ${X:-evil.com}/a:1\n");
+        rule_catches_not_with(&gcr, "DL3026", "FROM ${X:-gcr.io}/a:1\n");
+        rule_catches_with(&gcr, "DL3026", "FROM ${X-evil.com}/a:1\n");
+        rule_catches_with(&gcr, "DL3026", "FROM evil.com/a${X:+gcr.io}:1\n");
+    }
+
+    #[test]
+    fn arg_defaults_refer_to_earlier_args() {
+        let gcr = cfg(&["gcr.io"]);
+        rule_catches_with(
+            &gcr,
+            "DL3026",
+            "ARG R=evil.com\nARG IMG=${R}/x\nFROM $IMG\n",
+        );
+        rule_catches_not_with(&gcr, "DL3026", "ARG R=gcr.io\nARG IMG=${R}/x\nFROM $IMG\n");
+        rule_catches_not_with(&gcr, "DL3026", "ARG R\nARG IMG=${R}/x\nFROM $IMG\n");
     }
 }

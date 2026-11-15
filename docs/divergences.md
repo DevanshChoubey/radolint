@@ -71,8 +71,11 @@ any trusted registry other than docker.io it reports DL3026 even when
 `ARG BASE=trusted.com/app:1` says otherwise. radolint expands `$NAME`,
 `${NAME}`, `${NAME:-word}`, `${NAME-word}`, `${NAME:+word}` and
 `${NAME+word}` with the defaults of the ARGs declared before the first FROM,
-as Docker does, and checks the result. When the registry depends on a build
-argument without a default, it cannot be known, so DL3026 is not reported.
+as Docker does, and checks the result. Defaults may refer to earlier ARGs, and
+a name that is not a global ARG is unset. When the registry depends on a build
+argument without a default, it cannot be known, so DL3026 is not reported; a
+literal registry in front of a variable path (`evil.com/${ORG}/img`) is still
+checked.
 
 ## DL3003 and `cd` in a subshell (hadolint/hadolint#422)
 

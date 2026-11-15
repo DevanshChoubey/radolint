@@ -90,8 +90,14 @@ if [ ! -x "$bin" ]; then
         tar -xzf "$tmp/$name.$ext" -C "$tmp"
     fi
     chmod +x "$tmp/$name/$exe"
+    # A directory left without the binary (an interrupted install) would make mv nest the new
+    # tree inside it, so clear it first.
+    [ -x "$bin" ] || rm -rf "${cache_root:?}/$name"
     # Another hook process may have finished first; either copy is the same file.
     mv "$tmp/$name" "$cache_root/$name" 2>/dev/null || true
+    # exec below skips the EXIT trap, so clean up here.
+    rm -rf "$tmp"
+    trap - EXIT
     [ -x "$bin" ] || { echo "radolint hook: could not install $bin" >&2; exit 2; }
 fi
 
