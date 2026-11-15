@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+- GitHub Action: a shorter description, so the Action can be listed on the
+  GitHub Marketplace.
+- The GitHub Action and the VS Code extension download 0.2.2 by default.
+
 ## 0.2.1
 
 - DL3026: a literal registry in front of a variable path

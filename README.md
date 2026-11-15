@@ -117,7 +117,7 @@ radolint exits with status 1 when a finding reaches the failure threshold
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: DevanshChoubey/radolint@v0.2.1
+- uses: DevanshChoubey/radolint@v0.2.2
   with:
     dockerfile: Dockerfile        # space-separated files or globs, e.g. "**/Dockerfile*"
     failure-threshold: warning    # error, warning, info (default), style, ignore, none
@@ -144,7 +144,7 @@ macOS and Windows runners.
 ```yaml
 repos:
   - repo: https://github.com/DevanshChoubey/radolint
-    rev: v0.2.1
+    rev: v0.2.2
     hooks:
       - id: radolint
 ```
