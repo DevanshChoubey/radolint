@@ -3,12 +3,16 @@
 ## VS Code
 
 The extension in [vscode/](vscode/) runs radolint on each Dockerfile as you
-type and has quick fixes for ignore pragmas. Install the `.vsix` from the
-[latest release](https://github.com/DevanshChoubey/radolint/releases/latest):
+type and has quick fixes for ignore pragmas. Install it from the
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=DevanshChoubey.radolint)
+or [Open VSX](https://open-vsx.org/extension/DevanshChoubey/radolint):
 
 ```sh
-code --install-extension radolint-0.2.0.vsix
+code --install-extension DevanshChoubey.radolint
 ```
+
+Each [release](https://github.com/DevanshChoubey/radolint/releases/latest)
+also has the `.vsix` file for offline installs.
 
 If you already use the hadolint extension (`exiasr.hadolint`), you can keep it
 and point it at radolint instead:
