@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0
 
 Fixes for some of hadolint's most-reported issues. These are the first
 deliberate output differences from hadolint on inputs it does not crash on;
@@ -17,6 +17,7 @@ each is listed in docs/divergences.md.
   reported (hadolint/hadolint#401, hadolint/hadolint#339).
 - DL3003: a `cd` inside a `( ... )` subshell is not reported
   (hadolint/hadolint#422).
+- The GitHub Action and the VS Code extension download 0.2.0 by default.
 
 ## 0.1.1
 
