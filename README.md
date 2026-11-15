@@ -283,7 +283,8 @@ explain, that is a bug, so please
 [open an issue](https://github.com/DevanshChoubey/radolint/issues) with the
 Dockerfile and the command. See [CONTRIBUTING.md](CONTRIBUTING.md) for how
 to build, test and run the conformance suite. Release notes are in
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](CHANGELOG.md). To report a security problem, see
+[SECURITY.md](SECURITY.md).
 
 ## Licence
 
