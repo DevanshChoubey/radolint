@@ -1,5 +1,5 @@
 name: radolint
-description: Lint Dockerfiles with radolint, a fast drop-in hadolint replacement written in Rust. Same rules, flags, config and output as hadolint.
+description: Fast drop-in hadolint replacement written in Rust. Lint Dockerfiles with the same rules, flags and output.
 branding:
   icon: check-circle
   color: blue
