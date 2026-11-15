@@ -82,6 +82,10 @@ jobs:
       # Every ShellCheck run gets a thread with a 512 MB stack, so keep test
       # parallelism low.
       - run: cargo test --workspace --locked -- --test-threads=2
+      # Replays the 1,395 Dockerfiles recorded from hadolint; every case must match.
+      - name: Conformance
+        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable'
+        run: cargo run --locked -p radolint-conformance
 
   build:
     name: build (${{ matrix.target }})

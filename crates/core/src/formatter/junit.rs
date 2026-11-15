@@ -33,11 +33,11 @@ fn escape_content(s: &str, out: &mut String) {
 }
 
 fn escape_attr(s: &str, out: &mut String) {
+    // xml-conduit, which hadolint uses, leaves `>` alone in attribute values.
     for c in s.chars() {
         match c {
             '&' => out.push_str("&amp;"),
             '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
             '"' => out.push_str("&quot;"),
             c => out.push(c),
         }
@@ -341,5 +341,12 @@ mod tests {
             case("DL2003", "info", "test 2", 3)
         );
         assert_eq!(cap, expectation(&suite(2, &inner), &cap));
+    }
+
+    #[test]
+    fn attribute_escaping_matches_xml_conduit() {
+        let mut out = String::new();
+        escape_attr("a'b\"c<d>e&f", &mut out);
+        assert_eq!(out, "a'b&quot;c&lt;d>e&amp;f");
     }
 }

@@ -272,4 +272,7 @@ fn main() {
         }
     }
     println!("pass {pass} / fail {fail}");
+    if fail > 0 {
+        std::process::exit(1);
+    }
 }

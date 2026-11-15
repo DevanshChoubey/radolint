@@ -21,11 +21,10 @@ fn escape(s: &str) -> String {
     let mut o = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
+            // xml-conduit, which hadolint uses, escapes only these three in attribute values.
             '<' => o.push_str("&lt;"),
-            '>' => o.push_str("&gt;"),
             '&' => o.push_str("&amp;"),
             '"' => o.push_str("&quot;"),
-            '\'' => o.push_str("&apos;"),
             c => o.push(c),
         }
     }
@@ -180,5 +179,10 @@ mod tests {
             render(&[r], Some("b")),
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><checkstyle version=\"4.3\"><file name=\"b\"><error column=\"1\" line=\"2\" message=\"x&lt;y\" severity=\"error\" source=\"DL3000\"/></file></checkstyle>"
         );
+    }
+
+    #[test]
+    fn attribute_escaping_matches_xml_conduit() {
+        assert_eq!(escape("a'b\"c<d>e&f"), "a'b&quot;c&lt;d>e&amp;f");
     }
 }
