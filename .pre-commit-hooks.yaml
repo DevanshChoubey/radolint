@@ -1,7 +1,7 @@
 # pre-commit hooks for radolint. Use them from .pre-commit-config.yaml:
 #
 #   - repo: https://github.com/DevanshChoubey/radolint
-#     rev: v0.2.0
+#     rev: v0.2.1
 #     hooks:
 #       - id: radolint
 #

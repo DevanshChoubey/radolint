@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1
+
+- DL3026: a literal registry in front of a variable path
+  (`FROM evil.com/${ORG}/img`) is checked; `ARG A=x B=y` sets both
+  variables; a name that is not a global `ARG` is unset, so
+  `${X:-evil.com}` is checked; `ARG` defaults may refer to earlier `ARG`s.
+- pre-commit hook: the download directory is removed after install, and a
+  cache directory left by an interrupted install no longer breaks the hook.
+- checkstyle and junit: attribute values are escaped as hadolint does
+  (`>` and `'` are left as they are), so the output is byte-identical again.
+- The conformance suite now runs in CI and fails on any mismatch.
+- The GitHub Action and the VS Code extension download 0.2.1 by default.
+
 ## 0.2.0
 
 Fixes for some of hadolint's most-reported issues. These are the first
