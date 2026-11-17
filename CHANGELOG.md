@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 More fixes for frequently reported hadolint issues (see
 docs/divergences.md):
@@ -14,6 +14,7 @@ docs/divergences.md):
   `/var/cache/dnf` (hadolint #1139).
 - DL3020 expands ARG and ENV values in ADD sources, so `ADD ${URL}` with a
   URL default is not reported (hadolint #769).
+- The GitHub Action and the VS Code extension download 0.3.0 by default.
 
 ## 0.2.2
 
