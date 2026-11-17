@@ -1459,4 +1459,59 @@ mod tests {
             )],
         );
     }
+
+    // DIVERGENCE: language-docker PR #115 (hadolint #960, #1060).
+    #[test]
+    fn heredoc_followed_by_another_instruction() {
+        assert_ast(
+            &["COPY <<EOF /target", "content", "EOF", "COPY a b"],
+            vec![
+                cp(&["EOF"], "/target", CopyFlags::default()),
+                cp(&["a"], "b", CopyFlags::default()),
+            ],
+        );
+    }
+
+    #[test]
+    fn empty_heredoc_followed_by_a_comment() {
+        assert_ast(
+            &["COPY <<EOF /target", "EOF", "# comment"],
+            vec![
+                cp(&["EOF"], "/target", CopyFlags::default()),
+                Instruction::Comment(" comment".to_string()),
+            ],
+        );
+    }
+
+    // DIVERGENCE: language-docker PR #114 (hadolint #1137).
+    #[test]
+    fn add_with_line_continuation_and_no_space_before_backslash() {
+        assert_ast(
+            &["ADD foo.json\\", "  /root/foo.json"],
+            vec![ad(&["foo.json"], "/root/foo.json", AddFlags::default())],
+        );
+    }
+
+    #[test]
+    fn copy_with_line_continuation_and_no_space_before_backslash() {
+        assert_ast(
+            &["COPY foo.json\\", "  /root/foo.json"],
+            vec![cp(&["foo.json"], "/root/foo.json", CopyFlags::default())],
+        );
+    }
+
+    #[test]
+    fn multifiles_copy_with_line_continuation_and_no_space_before_backslash() {
+        assert_ast(
+            &["COPY foo bar\\", "  baz /app"],
+            vec![cp(&["foo", "bar", "baz"], "/app", CopyFlags::default())],
+        );
+    }
+
+    #[test]
+    fn copy_with_line_continuation_not_followed_by_whitespace() {
+        // Docker joins these two lines without inserting a space, which
+        // leaves COPY with a single argument.
+        assert!(parse_text("COPY foo.json\\\n/root/foo.json\n").is_err());
+    }
 }

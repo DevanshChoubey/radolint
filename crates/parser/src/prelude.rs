@@ -198,14 +198,26 @@ pub fn heredoc_redirect(p: &mut Parser) -> PResult<String> {
 }
 /// Haskell `heredocContent`.
 pub fn heredoc_content(p: &mut Parser, marker: &str) -> PResult<String> {
-    let ter_eol = |s: &mut Parser| s.string(&format!("\n{marker}\n"));
+    // DIVERGENCE: language-docker PR #115 (hadolint #960, #1060). The line
+    // break after the terminating marker is not part of the heredoc: it
+    // separates this instruction from the next one, so it is only looked at
+    // and left for the caller to consume.
+    let ter_eol = |s: &mut Parser| {
+        let t = s.string(&format!("\n{marker}"))?;
+        s.look_ahead(|s| s.char('\n'))?;
+        Ok(t)
+    };
     let ter_eof = |s: &mut Parser| {
         let t = s.string(&format!("\n{marker}"))?;
         s.hidden(|s| s.eof())?;
         Ok(t)
     };
     let termination = |s: &mut Parser| s.alt(|s| s.try_(ter_eol), ter_eof);
-    let del_eol = |s: &mut Parser| s.string(&format!("{marker}\n"));
+    let del_eol = |s: &mut Parser| {
+        let t = s.string(marker)?;
+        s.look_ahead(|s| s.char('\n'))?;
+        Ok(t)
+    };
     let del_eof = |s: &mut Parser| {
         let t = s.string(marker)?;
         s.hidden(|s| s.eof())?;
@@ -436,12 +448,25 @@ pub fn some_unless(
     let res = p.many(|s| {
         let esc = s.esc;
         s.choice(&[
-            &|s| escaped_line_breaks(s).map(cast_to_space),
+            // DIVERGENCE: language-docker PR #114 (hadolint #1137). An
+            // escaped line break followed by whitespace separates two tokens
+            // when the predicate stops at spaces, so it ends this one.
+            &|s| {
+                s.try_(|s| {
+                    let ws = escaped_line_breaks(s)?;
+                    if ws == FoundWhitespace::FoundWhitespace && predicate(' ') {
+                        return s.fail("escaped line break separating two tokens");
+                    }
+                    Ok(cast_to_space(ws))
+                })
+            },
             &|s| s.take_while1_p(Some(name), |c| !(is_space_nl(esc, c) || predicate(c))),
             &|s| {
-                let r = s.take_while1_p(None, |c| c == esc && !predicate(c))?;
-                s.not_followed_by(|s| s.char('\n'))?;
-                Ok(r)
+                s.try_(|s| {
+                    let r = s.take_while1_p(None, |c| c == esc && !predicate(c))?;
+                    s.not_followed_by(|s| s.char('\n'))?;
+                    Ok(r)
+                })
             },
         ])
     })?;
