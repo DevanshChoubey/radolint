@@ -68,6 +68,10 @@ fn dl3040() -> Box<dyn Rule> {
                 true
             } else if utils::has_cache_or_tmpfs_mount_with("/var/cache/libdnf5", flags) {
                 true
+            } else if utils::has_cache_or_tmpfs_mount_with("/var/cache/dnf", flags) {
+                // DIVERGENCE: hadolint #1139. dnf4 (RHEL/Rocky/Alma 8 and 9)
+                // keeps its cache in /var/cache/dnf, not /var/cache/libdnf5.
+                true
             } else {
                 utils::has_cache_or_tmpfs_mount_with(".cache/libdnf5", flags)
             }
@@ -255,5 +259,26 @@ mod tests {
         rule_catches_not("DL3040", "RUN dnf -y up-min && dnf clean all");
         rule_catches_not("DL3040", "RUN dnf -y reinstall && dnf clean all");
         rule_catches_not("DL3040", "RUN dnf -y rei && dnf clean all");
+    }
+
+    // DIVERGENCE: hadolint #1139.
+    #[test]
+    fn ok_with_cache_mount_at_var_cache_dnf() {
+        rule_catches_not(
+            "DL3040",
+            "RUN --mount=type=cache,target=/var/cache/dnf dnf install -y mariadb-10.4",
+        );
+        rule_catches_not(
+            "DL3040",
+            "RUN --mount=type=tmpfs,target=/var/cache/dnf dnf install -y mariadb-10.4",
+        );
+        on_build_rule_catches_not(
+            "DL3040",
+            "RUN --mount=type=cache,target=/var/cache/dnf microdnf install -y mariadb-10.4",
+        );
+        rule_catches(
+            "DL3040",
+            "RUN --mount=type=cache,target=/var/cache/apt dnf install -y mariadb-10.4",
+        );
     }
 }
