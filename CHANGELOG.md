@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+More fixes for frequently reported hadolint issues (see
+docs/divergences.md):
+
+- A `RUN` or `COPY` heredoc followed by a comment or another instruction
+  parses (hadolint #960, #1060).
+- `COPY foo\` followed by an indented line parses (hadolint #1137).
+- `RUN <<EOF bash` heredocs are checked as bash, and DL4006 accepts
+  `set -o pipefail` in the heredoc body (hadolint #1137, #806).
+- DL3032 accepts a cache mount of `/var/cache/yum`, and DL3040 one of
+  `/var/cache/dnf` (hadolint #1139).
+- DL3020 expands ARG and ENV values in ADD sources, so `ADD ${URL}` with a
+  URL default is not reported (hadolint #769).
+
 ## 0.2.2
 
 - GitHub Action: a shorter description, so the Action can be listed on the
