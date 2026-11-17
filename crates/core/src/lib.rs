@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Rules, configuration, formatters and the lint pipeline (port of hadolint/src).
 
+pub mod arg_vars;
 pub mod config;
 pub mod formatter;
 pub mod lint;

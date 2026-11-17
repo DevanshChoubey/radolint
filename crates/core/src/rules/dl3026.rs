@@ -10,17 +10,18 @@
 //!   registry depends on an ARG without a default, it is unknown and the image is not reported. hadolint takes the variable text as a Docker Hub image name and
 //!   reports it whenever docker.io is not trusted.
 
+use crate::arg_vars::Vars;
 use crate::rule::{
     CheckFailure, DLSeverity, Rule, RuleCode, State, add_fail, custom_rule, empty_state, modify,
 };
 use radolint_syntax::*;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 #[derive(Clone, Default)]
 struct St {
     aliases: BTreeSet<Option<ImageAlias>>,
     /// ARGs declared before the first FROM, with their defaults.
-    global_args: BTreeMap<String, Option<String>>,
+    global_args: Vars,
     seen_from: bool,
 }
 
@@ -110,7 +111,7 @@ pub fn rule(allowed: &BTreeSet<Registry>) -> Box<dyn Rule> {
             match instr {
                 Instruction::Arg(name, value) if !st.state.seen_from => modify(
                     |mut s: St| {
-                        record_args(&mut s.global_args, name, value.as_deref());
+                        s.global_args.record_arg(name, value.as_deref(), None);
                         s
                     },
                     st,
@@ -229,7 +230,7 @@ fn image_paths(img: &Image) -> Vec<String> {
 
 /// The image with its variables expanded from the global ARG defaults, or `None` when that is
 /// not possible. An image without variables is returned as it is.
-fn resolve_image(img: &Image, args: &BTreeMap<String, Option<String>>) -> Option<Image> {
+fn resolve_image(img: &Image, args: &Vars) -> Option<Image> {
     let full = match &img.registry_name {
         Some(r) => format!("{}/{}", r.un_registry, img.image_name),
         None => img.image_name.clone(),
@@ -237,7 +238,7 @@ fn resolve_image(img: &Image, args: &BTreeMap<String, Option<String>>) -> Option
     if !full.contains('$') {
         return Some(img.clone());
     }
-    let expanded = expand(&full, args)?;
+    let expanded = args.expand(&full)?;
     if expanded.is_empty() || expanded.contains('$') {
         return None;
     }
@@ -251,164 +252,6 @@ fn resolve_image(img: &Image, args: &BTreeMap<String, Option<String>>) -> Option
         out.image_name.truncate(last + colon);
     }
     Some(out)
-}
-
-/// Expands `$NAME`, `${NAME}`, `${NAME:-word}`, `${NAME-word}`, `${NAME:+word}` and
-/// `${NAME+word}` the way BuildKit does for FROM. `None` means a value is unknown: the variable is
-/// an ARG without a default (it can only come from `--build-arg`). Other names are unset.
-fn expand(s: &str, args: &BTreeMap<String, Option<String>>) -> Option<String> {
-    let chars: Vec<char> = s.chars().collect();
-    let mut out = String::new();
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i] != '$' {
-            out.push(chars[i]);
-            i += 1;
-            continue;
-        }
-        i += 1;
-        if chars.get(i) == Some(&'{') {
-            // Find the matching close brace.
-            let start = i + 1;
-            let mut depth = 1;
-            let mut j = start;
-            while j < chars.len() && depth > 0 {
-                match chars[j] {
-                    '{' => depth += 1,
-                    '}' => depth -= 1,
-                    _ => {}
-                }
-                j += 1;
-            }
-            if depth != 0 {
-                return None;
-            }
-            let body: String = chars[start..j - 1].iter().collect();
-            out.push_str(&expand_braced(&body, args)?);
-            i = j;
-        } else {
-            let start = i;
-            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
-                i += 1;
-            }
-            if start == i {
-                out.push('$');
-                continue;
-            }
-            let name: String = chars[start..i].iter().collect();
-            out.push_str(&lookup(&name, args)?.unwrap_or_default());
-        }
-    }
-    Some(out)
-}
-
-/// The value of a variable in FROM. `None`: unknown (an ARG declared without a default, which
-/// only `--build-arg` can set). `Some(None)`: unset (not a global ARG, so nothing can set it).
-fn lookup(name: &str, args: &BTreeMap<String, Option<String>>) -> Option<Option<String>> {
-    match args.get(name) {
-        Some(v) => v.clone().map(Some),
-        None => Some(None),
-    }
-}
-
-/// Records the variables of one global `ARG` line. The parser keeps everything after the first
-/// `=` as one value, so `ARG A=x B=y` arrives as `A` = `x B=y` and is split here. Defaults that
-/// refer to earlier ARGs (`ARG IMG=${REG}/app`) are expanded now, as Docker does.
-fn record_args(args: &mut BTreeMap<String, Option<String>>, name: &str, value: Option<&str>) {
-    let mut pairs: Vec<(String, Option<String>)> = Vec::new();
-    match value {
-        None => pairs.push((name.to_string(), None)),
-        Some(v) => {
-            let mut words = split_words(v).into_iter();
-            pairs.push((name.to_string(), Some(words.next().unwrap_or_default())));
-            for w in words {
-                match w.split_once('=') {
-                    Some((k, v)) => pairs.push((k.to_string(), Some(unquote(v).to_string()))),
-                    None => pairs.push((w, None)),
-                }
-            }
-        }
-    }
-    for (k, v) in pairs {
-        let v = match v {
-            Some(v) if v.contains('$') => expand(&v, args),
-            v => v,
-        };
-        args.insert(k, v);
-    }
-}
-
-/// Splits an ARG value on unquoted whitespace, removing the quotes.
-fn split_words(v: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    let mut cur = String::new();
-    let mut quote: Option<char> = None;
-    let mut in_word = false;
-    for c in v.chars() {
-        match quote {
-            Some(q) if c == q => quote = None,
-            Some(_) => cur.push(c),
-            None if c == '"' || c == '\'' => {
-                quote = Some(c);
-                in_word = true;
-            }
-            None if c.is_whitespace() => {
-                if in_word {
-                    words.push(std::mem::take(&mut cur));
-                    in_word = false;
-                }
-            }
-            None => {
-                cur.push(c);
-                in_word = true;
-            }
-        }
-    }
-    if in_word {
-        words.push(cur);
-    }
-    words
-}
-
-fn unquote(v: &str) -> &str {
-    // Values are unquoted by `split_words`; this handles `K="v"` pairs split on `=`.
-    for q in ['"', '\''] {
-        if v.len() >= 2 && v.starts_with(q) && v.ends_with(q) {
-            return &v[1..v.len() - 1];
-        }
-    }
-    v
-}
-
-fn expand_braced(body: &str, args: &BTreeMap<String, Option<String>>) -> Option<String> {
-    let name_len = body
-        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-        .unwrap_or(body.len());
-    let (name, rest) = body.split_at(name_len);
-    let value = lookup(name, args)?;
-    let (op, word) = if let Some(w) = rest.strip_prefix(":-") {
-        (":-", w)
-    } else if let Some(w) = rest.strip_prefix(":+") {
-        (":+", w)
-    } else if let Some(w) = rest.strip_prefix('-') {
-        ("-", w)
-    } else if let Some(w) = rest.strip_prefix('+') {
-        ("+", w)
-    } else if rest.is_empty() {
-        return Some(value.unwrap_or_default());
-    } else {
-        // `${NAME:?msg}` and other forms: leave the value unknown.
-        return None;
-    };
-    match (op, value) {
-        (":-", None) | ("-", None) => expand(word, args),
-        (":-", Some(v)) if v.is_empty() => expand(word, args),
-        (":+", Some(v)) if !v.is_empty() => expand(word, args),
-        ("+", Some(_)) => expand(word, args),
-        (":+", _) | ("+", None) => Some(String::new()),
-        (_, None) => None,
-        (_, Some(v)) => Some(v),
-    }
 }
 
 #[cfg(test)]
