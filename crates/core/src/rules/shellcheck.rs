@@ -275,6 +275,7 @@ fn get_dl_severity(s: &Severity) -> DLSeverity {
 
 #[cfg(test)]
 mod tests {
+    use crate::rule::RuleCode;
     use crate::testing::*;
 
     fn both(df: &str, on_build_passes: bool, chk_passes: bool) {
@@ -513,5 +514,39 @@ mod tests {
         ]
         .join("\n");
         assert_checks(&df, |c| passes_shellcheck(&c));
+    }
+
+    // DIVERGENCE: hadolint PR #1277 (hadolint #1137, #806). A RUN heredoc fed
+    // to a shell is checked with that shell's dialect. Upstream's tests use
+    // SC3040, which the ShellCheck version hadolint 2.15.1 bundles does not
+    // report, so these use SC3028 (`$RANDOM` is undefined in POSIX sh).
+    fn heredoc_df(shell: &str) -> String {
+        format!("FROM scratch\nRUN <<EOF{shell}\n    set -eux\n    echo \"$RANDOM\" | cat\nEOF\n")
+    }
+
+    #[test]
+    fn checks_a_bash_heredoc_body_as_bash() {
+        let df = heredoc_df(" bash");
+        assert_checks(&df, |c| passes_shellcheck(&c));
+        assert_checks(&df, |c| fails_with(0, &RuleCode::from("SC3028"), &c));
+    }
+
+    #[test]
+    fn checks_an_absolute_path_bash_heredoc_body_as_bash() {
+        assert_checks(&heredoc_df(" /bin/bash"), |c| passes_shellcheck(&c));
+    }
+
+    #[test]
+    fn still_checks_an_sh_heredoc_body_as_sh() {
+        assert_checks(&heredoc_df(" sh"), |c| {
+            fails_with_some(&RuleCode::from("SC3028"), &c)
+        });
+    }
+
+    #[test]
+    fn still_checks_a_heredoc_without_an_interpreter_as_sh() {
+        assert_checks(&heredoc_df(""), |c| {
+            fails_with_some(&RuleCode::from("SC3028"), &c)
+        });
     }
 }
