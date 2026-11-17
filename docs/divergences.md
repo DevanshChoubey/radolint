@@ -84,3 +84,46 @@ hadolint's DL3003 documentation suggests running `cd` in a subshell, as in
 radolint does not report a `cd` inside `( ... )`, which cannot change the
 directory of the commands after it. A `cd` in a `{ ...; }` group or at the top
 level is still reported.
+
+## Heredocs followed by another line (hadolint/hadolint#960, #1060)
+
+hadolint fails to parse a Dockerfile in which a `RUN` or `COPY` heredoc is
+followed by a comment or another instruction, because the parser consumes the
+line break after the closing marker. radolint leaves that line break in place,
+as language-docker PR #115 does, so the next line parses.
+
+## COPY and ADD with a line continuation (hadolint/hadolint#1137)
+
+hadolint fails to parse `COPY foo.json\` followed by an indented
+`/root/foo.json`: the line break is pulled into the source path. radolint
+ends the token at an escaped line break followed by whitespace, as
+language-docker PR #114 does. A continuation line that starts without
+whitespace still joins the two words, as Docker does, and is an error.
+
+## RUN heredocs fed to a shell (hadolint/hadolint#1137, #806)
+
+For `RUN <<EOF bash`, the heredoc body runs under bash, not under the image
+SHELL. hadolint checks the body as POSIX sh and reports DL4006 even when the
+body starts with `set -o pipefail`. Following hadolint PR #1277, radolint
+checks the body with ShellCheck in the dialect of the named shell (bash, ksh,
+ash, sh or dash; a zsh heredoc keeps the image shell), and DL4006 is not
+reported when a bash, zsh, ash or ksh heredoc sets `pipefail` before its first
+pipe.
+
+## Cache mounts for yum and dnf (hadolint/hadolint#1139)
+
+DL3032 now accepts a cache or tmpfs mount of `/var/cache/yum` in place of
+`yum clean all`, and DL3040 accepts a mount of `/var/cache/dnf` (dnf4, as on
+RHEL, Rocky and Alma 8 and 9) as well as `/var/cache/libdnf5`. DL3036 and
+DL3040 already allowed this for zypper and dnf5.
+
+## DL3020 on ADD sources built from variables (hadolint/hadolint#769)
+
+hadolint checks the text of `ADD ${URL} /app/`, so it always reports DL3020
+even when `ARG URL=https://...` makes the source a URL. radolint expands the
+source with the ARG and ENV values of its build stage, as Docker does: values
+reset at each FROM, and a global ARG applies only once the stage declares it
+again with `ARG NAME`. When a value is unknown (an ARG without a default, or a
+variable that may come from the base image), DL3020 is not reported, unless
+the literal text around the variables already rules out a URL and an archive,
+as in `ADD conf/${ENV}.json /etc/`.

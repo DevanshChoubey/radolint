@@ -246,6 +246,10 @@ hadolint crash, and the bug fixes below.
 | [#339](https://github.com/hadolint/hadolint/issues/339): `FROM localhost:5000/img:tag` fails to parse, and `FROM $ARG` gets DL3026 | Registries with a port or `localhost` parse, and FROM variables are expanded from global `ARG` defaults |
 | [#401](https://github.com/hadolint/hadolint/issues/401): trusted registries ignore paths like `gcr.io/distroless` | `--trusted-registry gcr.io/distroless` allows the images under that path |
 | [#422](https://github.com/hadolint/hadolint/issues/422): DL3003 flags `cd` in a `( ... )` subshell | A `cd` in a subshell is not reported |
+| [#960](https://github.com/hadolint/hadolint/issues/960), [#1060](https://github.com/hadolint/hadolint/issues/1060): a heredoc followed by a comment or instruction fails to parse | Heredocs end at their marker and the next line parses |
+| [#1137](https://github.com/hadolint/hadolint/issues/1137), [#806](https://github.com/hadolint/hadolint/issues/806): `RUN <<EOF bash` is checked as sh, and `COPY foo\` line continuations fail to parse | The heredoc body is checked as bash, `set -o pipefail` in it satisfies DL4006, and the continuation parses |
+| [#1139](https://github.com/hadolint/hadolint/issues/1139): DL3032 and DL3040 ignore yum and dnf4 cache mounts | Cache mounts of `/var/cache/yum` and `/var/cache/dnf` are accepted |
+| [#769](https://github.com/hadolint/hadolint/issues/769): `ADD $URL` gets DL3020 | ADD sources are expanded from the stage's ARG and ENV values |
 
 ## Benchmarks
 
