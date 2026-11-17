@@ -99,6 +99,13 @@ pub fn shellcheck(opts: &ShellOpts, script: &ParsedShell) -> Vec<PositionedComme
         env_vars: env,
     } = opts;
     let txt = &script.original;
+    // DIVERGENCE: hadolint PR #1277 (hadolint #1137, #806). A heredoc RUN fed
+    // to a shell (e.g. `RUN <<EOF bash`) runs its body under that shell, not
+    // under the image SHELL, so the body is checked with that shell's
+    // dialect. Otherwise bash features in a bash heredoc, such as `$RANDOM`,
+    // are wrongly flagged as undefined in POSIX sh (SC3028).
+    let heredoc_sh = heredoc_shell_name(txt);
+    let sh: &str = heredoc_sh.unwrap_or(sh);
     if non_posix_shells().iter().any(|n| sh.contains(n)) || has_unsupported_shebang(txt) {
         return vec![]; // Do no run for non-posix shells i.e. powershell, cmd.exe
     }
@@ -124,6 +131,178 @@ pub fn shellcheck(opts: &ShellOpts, script: &ParsedShell) -> Vec<PositionedComme
     spec.shell_type_override = None;
     spec.min_severity = Severity::StyleC;
     shelllint_checker::check_script(&si, &spec).comments
+}
+
+/// Shells that a RUN heredoc may be fed to, by the name that may follow the
+/// heredoc marker (e.g. `RUN <<EOF bash`). The parser represents such a RUN
+/// as the arguments text `"bash\n<body>"`: the first line names the
+/// interpreter and the rest is the script it runs.
+const HEREDOC_SHELLS: &[&str] = &["bash", "sh", "dash", "ash", "zsh", "ksh"];
+
+/// The last path component of a shell name (`/bin/bash` -> `bash`).
+fn shell_basename(s: &str) -> &str {
+    s.rsplit('/').next().unwrap_or(s)
+}
+
+/// DIVERGENCE (hadolint PR #1277): if a RUN's arguments text is a heredoc fed
+/// to a shell, return that shell's basename and the script body it runs. The
+/// first line must be exactly a shell name, optionally as an absolute path;
+/// a first line carrying arguments is a command in the body.
+pub fn heredoc_shell(txt: &str) -> Option<(&str, String)> {
+    let mut lines = txt.lines();
+    let first = lines.next()?;
+    let rest: Vec<&str> = lines.collect();
+    let shell = shell_basename(first.trim());
+    if rest.is_empty() || !HEREDOC_SHELLS.contains(&shell) {
+        return None;
+    }
+    Some((shell, rest.iter().map(|l| format!("{l}\n")).collect()))
+}
+
+/// DIVERGENCE (hadolint PR #1277): the shell ShellCheck should check a heredoc
+/// body as. zsh is left out on purpose: ShellCheck cannot check zsh, so a zsh
+/// heredoc keeps the image shell.
+pub fn heredoc_shell_name(txt: &str) -> Option<&'static str> {
+    match heredoc_shell(txt)?.0 {
+        "bash" => Some("/bin/bash"),
+        "ksh" => Some("/bin/ksh"),
+        "ash" => Some("/bin/ash"),
+        "sh" => Some("/bin/sh"),
+        "dash" => Some("/bin/dash"),
+        _ => None,
+    }
+}
+
+/// Shells in which `set -o pipefail` is defined.
+const PIPEFAIL_SHELLS: &[&str] = &["bash", "zsh", "ash", "ksh"];
+
+/// DIVERGENCE (hadolint PR #1277): whether a RUN fed to a shell as a heredoc
+/// enables `pipefail` in its own body before the first pipe. An sh heredoc,
+/// or one without an interpreter, does not count.
+pub fn heredoc_sets_pipefail(script: &ParsedShell) -> bool {
+    match heredoc_shell(&script.original) {
+        Some((shell, body)) if PIPEFAIL_SHELLS.contains(&shell) => sets_pipefail_before_pipe(&body),
+        _ => false,
+    }
+}
+
+/// Whether a script enables `pipefail` with `set` before its first pipeline.
+fn sets_pipefail_before_pipe(body: &str) -> bool {
+    let set_line = body.lines().position(enables_pipefail);
+    let pipe_line = body.lines().position(has_pipeline);
+    matches!((set_line, pipe_line), (Some(s), Some(p)) if s < p)
+}
+
+/// Whether a line is a `set` command that enables `pipefail`, such as
+/// `set -o pipefail` or `set -euxo pipefail`.
+fn enables_pipefail(line: &str) -> bool {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    match words.split_first() {
+        Some((&"set", args)) => enables(args),
+        _ => false,
+    }
+}
+
+fn enables(args: &[&str]) -> bool {
+    let Some((&flag, rest)) = args.split_first() else {
+        return false;
+    };
+    let next_is_pipefail = |rest: &[&str]| match rest.split_first() {
+        Some((&"pipefail", _)) => true,
+        Some((_, rest2)) => enables(rest2),
+        None => false,
+    };
+    if flag == "--" {
+        false
+    } else if flag == "-o" {
+        // `-o` takes its option name as the next argument.
+        next_is_pipefail(rest)
+    } else if let Some(opt_name) = o_option(flag) {
+        // A combined short-flag token containing `o`: the option name is the
+        // rest of the token (`-opipefail`) or, when `o` is the last letter
+        // (`-euxo`), the next argument.
+        if opt_name.is_empty() {
+            next_is_pipefail(rest)
+        } else {
+            opt_name == "pipefail" || enables(rest)
+        }
+    } else if flag.starts_with('-') {
+        enables(rest)
+    } else {
+        // A bare word ends the flags.
+        false
+    }
+}
+
+/// The option name a combined flag token passes to `-o`, if any.
+fn o_option(f: &str) -> Option<&str> {
+    if f.starts_with('-') && !f.starts_with("--") && f.chars().count() > 2 && f[1..].contains('o') {
+        let after = &f[f.find('o').unwrap_or(f.len())..];
+        Some(&after[1..])
+    } else {
+        None
+    }
+}
+
+/// Whether a line contains a pipeline operator: a `|` outside quotes that is
+/// not part of `||`. A `#` at a word start outside quotes starts a comment.
+fn has_pipeline(line: &str) -> bool {
+    #[derive(Clone, Copy, PartialEq)]
+    enum Q {
+        None,
+        Single,
+        Double,
+    }
+    let cs: Vec<char> = line.chars().collect();
+    let (mut q, mut boundary, mut i) = (Q::None, true, 0);
+    while i < cs.len() {
+        let c = cs[i];
+        match q {
+            Q::Single => {
+                if c == '\'' {
+                    q = Q::None;
+                }
+                boundary = false;
+                i += 1;
+            }
+            Q::Double => {
+                if c == '"' {
+                    q = Q::None;
+                    i += 1;
+                } else if c == '\\' {
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+                boundary = false;
+            }
+            Q::None => {
+                if c == '\'' {
+                    q = Q::Single;
+                    boundary = false;
+                    i += 1;
+                } else if c == '"' {
+                    q = Q::Double;
+                    boundary = false;
+                    i += 1;
+                } else if c == '\\' {
+                    boundary = false;
+                    i += 2;
+                } else if c == '#' && boundary {
+                    return false;
+                } else if c == '|' && cs.get(i + 1) == Some(&'|') {
+                    boundary = false;
+                    i += 2;
+                } else if c == '|' {
+                    return true;
+                } else {
+                    boundary = c == ' ' || c == '\t';
+                    i += 1;
+                }
+            }
+        }
+    }
+    false
 }
 
 /// Haskell `nonPosixShells`.
@@ -541,5 +720,58 @@ mod tests {
             .map(|c| drop_flag_arg(&["loglevel"], c))
             .collect();
         assert_eq!(dropped, cmds);
+    }
+
+    // DIVERGENCE: hadolint PR #1277 (hadolint #1137).
+    #[test]
+    fn heredoc_shell_detects_the_interpreter() {
+        assert_eq!(
+            heredoc_shell("bash\nset -euxo pipefail\necho 123 | cat"),
+            Some(("bash", "set -euxo pipefail\necho 123 | cat\n".to_string()))
+        );
+        assert_eq!(
+            heredoc_shell("/bin/bash\nset -o pipefail\necho 123 | cat"),
+            Some(("bash", "set -o pipefail\necho 123 | cat\n".to_string()))
+        );
+        assert_eq!(heredoc_shell("echo 123 | cat"), None);
+        assert_eq!(heredoc_shell("bash"), None);
+        assert_eq!(heredoc_shell("bash -e setup.sh\necho hi"), None);
+        assert_eq!(heredoc_shell("python\nprint(\"foo\")"), None);
+    }
+
+    #[test]
+    fn heredoc_shell_name_maps_to_a_shellcheck_dialect() {
+        assert_eq!(
+            heredoc_shell_name("bash\nset -o pipefail\necho 123 | cat"),
+            Some("/bin/bash")
+        );
+        assert_eq!(
+            heredoc_shell_name("ksh\nset -o pipefail\necho 123 | cat"),
+            Some("/bin/ksh")
+        );
+        assert_eq!(
+            heredoc_shell_name("zsh\nset -o pipefail\necho 123 | cat"),
+            None
+        );
+        assert_eq!(heredoc_shell_name("echo 123 | cat"), None);
+    }
+
+    #[test]
+    fn heredoc_sets_pipefail_recognises_set_o_pipefail() {
+        let f = |s: &str| heredoc_sets_pipefail(&parse_shell(s));
+        assert!(f("bash\n    set -euxo pipefail\n    echo 123 | cat"));
+        assert!(f("bash\n    set -o pipefail\n    echo 123 | cat"));
+        assert!(f(
+            "bash\n    set -o errexit -o pipefail\n    echo 123 | cat"
+        ));
+        assert!(f("/bin/bash\n    set -euxo pipefail\n    echo 123 | cat"));
+        assert!(f("zsh\n    set -euxo pipefail\n    echo 123 | cat"));
+        assert!(!f("bash\n    echo 123 | cat"));
+        assert!(!f("bash\n    echo 123 | cat\n    set -euxo pipefail"));
+        assert!(f(
+            "bash\n    echo \"a|b\"\n    set -euxo pipefail\n    echo 123 | cat"
+        ));
+        assert!(!f("sh\n    set -euxo pipefail\n    echo 123 | cat"));
+        assert!(!f("set -euxo pipefail\necho 123 | cat"));
     }
 }

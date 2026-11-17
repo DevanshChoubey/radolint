@@ -28,7 +28,11 @@ explicitly setting your SHELL to /bin/ash, or disable this check";
                 }
             }
             Instruction::Run(RunArgs(args, _)) if !st.state => {
-                if fold_arguments(shell::has_pipes, args) {
+                // DIVERGENCE: hadolint PR #1277 (hadolint #1137). A bash
+                // heredoc that sets pipefail in its own body is protected.
+                if fold_arguments(shell::has_pipes, args)
+                    && !fold_arguments(shell::heredoc_sets_pipefail, args)
+                {
                     add_fail(
                         CheckFailure {
                             code: RuleCode::from(code),
@@ -174,5 +178,89 @@ mod tests {
             "DL4006",
             "FROM mcr.microsoft.com/powershell:ubuntu-16.04\nSHELL [ \"cmd.exe\", \"/c\" ]\nRUN Get-Variable PSVersionTable | Select-Object -ExpandProperty Value\n",
         );
+    }
+
+    // DIVERGENCE: hadolint PR #1277 (hadolint #1137). A RUN heredoc fed to a
+    // shell runs its body under that shell, so `set -o pipefail` at the top
+    // of the body protects its pipes.
+    fn heredoc(lines: &[&str]) -> String {
+        let mut s = String::from("FROM scratch\n");
+        for l in lines {
+            s.push_str(l);
+            s.push('\n');
+        }
+        s
+    }
+
+    #[test]
+    fn bash_heredoc_that_sets_pipefail_in_its_body() {
+        let df = heredoc(&[
+            "RUN <<EOF bash",
+            "    set -euxo pipefail",
+            "    echo 123 | cat",
+            "EOF",
+        ]);
+        rule_catches_not("DL4006", &df);
+    }
+
+    #[test]
+    fn bash_heredoc_with_a_separate_o_pipefail() {
+        let df = heredoc(&[
+            "RUN <<EOF bash",
+            "    set -o pipefail",
+            "    echo 123 | cat",
+            "EOF",
+        ]);
+        rule_catches_not("DL4006", &df);
+    }
+
+    #[test]
+    fn bash_heredoc_given_as_an_absolute_path() {
+        let df = heredoc(&[
+            "RUN <<EOF /bin/bash",
+            "    set -euxo pipefail",
+            "    echo 123 | cat",
+            "EOF",
+        ]);
+        rule_catches_not("DL4006", &df);
+    }
+
+    #[test]
+    fn bash_heredoc_that_does_not_set_pipefail() {
+        let df = heredoc(&["RUN <<EOF bash", "    echo 123 | cat", "EOF"]);
+        rule_catches("DL4006", &df);
+    }
+
+    #[test]
+    fn bash_heredoc_that_sets_pipefail_after_the_pipe() {
+        let df = heredoc(&[
+            "RUN <<EOF bash",
+            "    echo 123 | cat",
+            "    set -euxo pipefail",
+            "EOF",
+        ]);
+        rule_catches("DL4006", &df);
+    }
+
+    #[test]
+    fn sh_heredoc_that_sets_pipefail() {
+        let df = heredoc(&[
+            "RUN <<EOF sh",
+            "    set -euxo pipefail",
+            "    echo 123 | cat",
+            "EOF",
+        ]);
+        rule_catches("DL4006", &df);
+    }
+
+    #[test]
+    fn heredoc_without_an_interpreter_that_sets_pipefail() {
+        let df = heredoc(&[
+            "RUN <<EOF",
+            "    set -euxo pipefail",
+            "    echo 123 | cat",
+            "EOF",
+        ]);
+        rule_catches("DL4006", &df);
     }
 }
