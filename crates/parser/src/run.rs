@@ -1833,4 +1833,38 @@ mod tests {
             )],
         );
     }
+
+    // DIVERGENCE: language-docker PR #115 (hadolint #960, #1060).
+    #[test]
+    fn heredoc_followed_by_a_comment() {
+        assert_ast(
+            "RUN <<EOF\necho foo\nEOF\n# comment\n",
+            vec![
+                run("echo foo", RunFlags::default()),
+                Instruction::Comment(" comment".to_string()),
+            ],
+        );
+    }
+
+    #[test]
+    fn heredoc_followed_by_another_instruction() {
+        assert_ast(
+            "RUN <<EOF\necho foo\nEOF\nRUN echo bar\n",
+            vec![
+                run("echo foo", RunFlags::default()),
+                run("echo bar", RunFlags::default()),
+            ],
+        );
+    }
+
+    #[test]
+    fn empty_heredoc_followed_by_a_comment() {
+        assert_ast(
+            "RUN <<EOF\nEOF\n# comment\n",
+            vec![
+                run("", RunFlags::default()),
+                Instruction::Comment(" comment".to_string()),
+            ],
+        );
+    }
 }
